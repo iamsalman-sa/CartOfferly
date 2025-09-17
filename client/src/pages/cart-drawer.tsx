@@ -30,10 +30,11 @@ const mockCartItems = [
 export default function CartDrawer() {
   const [cartItems, setCartItems] = useState(mockCartItems);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [selectedFreeProducts, setSelectedFreeProducts] = useState<{id: string, value: number}[]>([]);
   
   const cartTotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   const freeDelivery = cartTotal >= 2500 ? 300 : 0;
-  const freeProductsValue = cartTotal >= 4000 ? 800 : 0;
+  const freeProductsValue = selectedFreeProducts.reduce((total, product) => total + product.value, 0);
   const finalTotal = cartTotal - freeDelivery - freeProductsValue;
 
   const updateQuantity = (id: string, change: number) => {
@@ -49,6 +50,10 @@ export default function CartDrawer() {
   const handleMilestoneUnlocked = () => {
     setShowCelebration(true);
     setTimeout(() => setShowCelebration(false), 3000);
+  };
+
+  const handleFreeProductsSelected = (products: {id: string, value: number}[]) => {
+    setSelectedFreeProducts(products);
   };
 
   return (
@@ -138,7 +143,10 @@ export default function CartDrawer() {
           {/* Free Product Selection */}
           {cartTotal >= 3000 && (
             <div className="px-6 pb-6">
-              <FreeProductSelection cartValue={cartTotal} />
+              <FreeProductSelection 
+                cartValue={cartTotal} 
+                onProductsSelected={handleFreeProductsSelected}
+              />
             </div>
           )}
 

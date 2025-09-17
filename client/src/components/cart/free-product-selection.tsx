@@ -14,6 +14,7 @@ interface FreeProduct {
 
 interface FreeProductSelectionProps {
   cartValue: number;
+  onProductsSelected?: (products: {id: string, value: number}[]) => void;
 }
 
 const freeProducts: FreeProduct[] = [
@@ -61,8 +62,9 @@ const freeProducts: FreeProduct[] = [
   }
 ];
 
-export default function FreeProductSelection({ cartValue }: FreeProductSelectionProps) {
+export default function FreeProductSelection({ cartValue, onProductsSelected }: FreeProductSelectionProps) {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [appliedProducts, setAppliedProducts] = useState<string[]>([]);
 
   // Calculate how many products can be selected
   const maxProducts = cartValue >= 5000 ? 3 : cartValue >= 4000 ? 2 : cartValue >= 3000 ? 1 : 0;
@@ -82,7 +84,16 @@ export default function FreeProductSelection({ cartValue }: FreeProductSelection
 
   const handleAddProducts = () => {
     console.log("Adding selected free products:", selectedProducts);
-    // Implementation would add products to cart
+    
+    // Calculate selected products with their values
+    const selectedProductsWithValues = selectedProducts.map(id => {
+      const product = freeProducts.find(p => p.id === id);
+      return { id, value: product?.value || 0 };
+    });
+    
+    // Apply the products
+    setAppliedProducts(selectedProducts);
+    onProductsSelected?.(selectedProductsWithValues);
   };
 
   return (
@@ -172,11 +183,13 @@ export default function FreeProductSelection({ cartValue }: FreeProductSelection
 
       <Button 
         onClick={handleAddProducts}
-        disabled={selectedProducts.length === 0}
+        disabled={selectedProducts.length === 0 || JSON.stringify(appliedProducts) === JSON.stringify(selectedProducts)}
         className="w-full mt-4 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold"
         data-testid="button-add-free-products"
       >
-        Add Selected Products ({selectedProducts.length})
+        {JSON.stringify(appliedProducts) === JSON.stringify(selectedProducts) 
+          ? `Applied ${appliedProducts.length} Products ✓` 
+          : `Add Selected Products (${selectedProducts.length})`}
       </Button>
     </div>
   );
