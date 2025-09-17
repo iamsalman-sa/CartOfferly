@@ -43,8 +43,13 @@ export default function CartDrawer() {
         item.id === id 
           ? { ...item, quantity: Math.max(0, item.quantity + change) }
           : item
-      ).filter(item => item.quantity > 0)
+      )
     );
+  };
+
+  const resetDemoCart = () => {
+    setCartItems(mockCartItems);
+    setSelectedFreeProducts([]);
   };
 
   const handleMilestoneUnlocked = () => {
@@ -71,14 +76,25 @@ export default function CartDrawer() {
           <div className="bg-primary text-primary-foreground p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold" data-testid="cart-title">Your Cart</h2>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-primary-foreground hover:bg-primary/80"
-                data-testid="button-close-cart"
-              >
-                <X className="w-5 h-5" />
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={resetDemoCart}
+                  className="text-primary-foreground hover:bg-primary/80 text-xs"
+                  data-testid="button-reset-cart"
+                >
+                  Reset Demo
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-primary-foreground hover:bg-primary/80"
+                  data-testid="button-close-cart"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
           </div>
 
