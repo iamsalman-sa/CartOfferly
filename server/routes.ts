@@ -168,6 +168,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mock cart data endpoint for testing
+  app.get("/api/stores/:storeId/cart", async (req, res) => {
+    try {
+      // Return mock cart data that matches the frontend
+      const cartItems = [
+        {
+          id: "1",
+          name: "Premium Leather Handbag",
+          price: 1500,
+          quantity: 2,
+          type: "regular",
+          image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=150&h=150&fit=crop",
+          variant: "Color: Black | Size: Medium"
+        },
+        {
+          id: "2", 
+          name: "Designer Watch",
+          price: 1200,
+          quantity: 1,
+          type: "regular",
+          image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=150&h=150&fit=crop",
+          variant: "Color: Silver | Band: Steel"
+        },
+        {
+          id: "3",
+          name: "Electronics Bundle",
+          price: 2500,
+          quantity: 1,
+          type: "bundle",
+          image: "https://images.unsplash.com/photo-1468495244123-6c6c332eeece?w=150&h=150&fit=crop",
+          variant: "Headphones + Speaker + Cable"
+        }
+      ];
+
+      const cartTotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+      const eligibleValue = cartItems
+        .filter(item => item.type !== "bundle")
+        .reduce((total, item) => total + (item.price * item.quantity), 0);
+
+      res.json({
+        items: cartItems,
+        totals: {
+          cartTotal,
+          eligibleValue, // Value excluding bundles
+          freeDelivery: eligibleValue >= 2500 ? 300 : 0
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching cart", error });
+    }
+  });
+
   // Analytics and reporting
   app.get("/api/stores/:storeId/analytics", async (req, res) => {
     try {
