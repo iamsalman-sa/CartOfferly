@@ -1,55 +1,97 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import RewardProgress from "@/components/cart/reward-progress";
 import UrgencyTimer from "@/components/cart/urgency-timer";
 import FreeProductSelection from "@/components/cart/free-product-selection";
 import CelebrationAnimation from "@/components/animations/celebration";
+import { useCart } from "@/hooks/use-cart";
+import { apiRequest } from "@/lib/queryClient";
+import { nanoid } from "nanoid";
 import { X, Plus, Minus } from "lucide-react";
 
-// Mock cart items data
-const mockCartItems = [
-  {
-    id: "1",
-    name: "Premium Leather Handbag",
-    price: 1500,
-    quantity: 2,
-    image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=150&h=150&fit=crop",
-    variant: "Color: Black | Size: Medium"
-  },
-  {
-    id: "2", 
-    name: "Designer Watch",
-    price: 1200,
-    quantity: 1,
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=150&h=150&fit=crop",
-    variant: "Color: Silver | Band: Steel"
-  }
-];
-
 export default function CartDrawer() {
-  const [cartItems, setCartItems] = useState(mockCartItems);
+  const [cartToken, setCartToken] = useState<string>("");
   const [showCelebration, setShowCelebration] = useState(false);
   const [selectedFreeProducts, setSelectedFreeProducts] = useState<{id: string, value: number}[]>([]);
   
-  const cartTotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  // Initialize cart session
+  useEffect(() => {
+    const initializeCart = async () => {
+      // Check for existing cart token in localStorage
+      let token = localStorage.getItem('cartToken');
+      console.log('Initializing cart - existing token:', token);
+      
+      if (!token) {
+        // Create new cart session
+        try {
+          const cartTokenValue = nanoid();
+          const response = await apiRequest("POST", "/api/cart-sessions", {
+            storeId: "demo-store-id", 
+            customerId: "demo-customer",
+            cartToken: cartTokenValue
+          });
+          const session = await response.json();
+          token = session.cartToken; // Use cartToken, not id
+          localStorage.setItem('cartToken', token);
+          console.log('Created cart session:', { sessionId: session.id, cartToken: session.cartToken, stored: token });
+        } catch (error) {
+          console.error('Failed to create cart session:', error);
+          return;
+        }
+      }
+      
+      setCartToken(token);
+    };
+    
+    initializeCart();
+  }, []);
+
+  // Use real cart hook
+  const { items: cartItems, cartTotal, session, isLoading, updateQuantity, selectFreeProducts, isUpdating, addItem } = useCart(cartToken);
+  
+  // Initialize demo items when cart is empty
+  useEffect(() => {
+    if (cartToken && cartItems.length === 0 && !isLoading) {
+      const demoItems = [
+        {
+          id: "1",
+          name: "Premium Leather Handbag",
+          price: 1500,
+          quantity: 2,
+          image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=150&h=150&fit=crop",
+          variant: "Color: Black | Size: Medium"
+        },
+        {
+          id: "2", 
+          name: "Designer Watch", 
+          price: 1200,
+          quantity: 1,
+          image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=150&h=150&fit=crop",
+          variant: "Color: Silver | Band: Steel"
+        }
+      ];
+      
+      demoItems.forEach(item => addItem(item));
+    }
+  }, [cartToken, cartItems.length, isLoading, addItem]);
+  
   const freeDelivery = cartTotal >= 2500 ? 300 : 0;
   const freeProductsValue = selectedFreeProducts.reduce((total, product) => total + product.value, 0);
   const finalTotal = cartTotal - freeDelivery - freeProductsValue;
 
-  const updateQuantity = (id: string, change: number) => {
-    setCartItems(items => 
-      items.map(item => 
-        item.id === id 
-          ? { ...item, quantity: Math.max(0, item.quantity + change) }
-          : item
-      )
-    );
+  const handleQuantityChange = (id: string, change: number) => {
+    const item = cartItems.find(item => item.id === id);
+    if (item) {
+      const newQuantity = Math.max(0, item.quantity + change);
+      updateQuantity(id, newQuantity);
+    }
   };
 
   const resetDemoCart = () => {
-    setCartItems(mockCartItems);
-    setSelectedFreeProducts([]);
+    // Clear localStorage and refresh to recreate demo cart
+    localStorage.removeItem('cartToken');
+    window.location.reload();
   };
 
   const handleMilestoneUnlocked = () => {
@@ -121,7 +163,7 @@ export default function CartDrawer() {
                     size="sm"
                     variant="outline"
                     className="w-8 h-8 p-0"
-                    onClick={() => updateQuantity(item.id, -1)}
+                    onClick={() => handleQuantityChange(item.id, -1)}
                     data-testid={`button-decrease-${item.id}`}
                   >
                     <Minus className="w-3 h-3" />
@@ -133,7 +175,7 @@ export default function CartDrawer() {
                     size="sm"
                     variant="outline"
                     className="w-8 h-8 p-0"
-                    onClick={() => updateQuantity(item.id, 1)}
+                    onClick={() => handleQuantityChange(item.id, 1)}
                     data-testid={`button-increase-${item.id}`}
                   >
                     <Plus className="w-3 h-3" />
