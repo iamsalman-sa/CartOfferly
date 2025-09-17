@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,119 +30,34 @@ import AdminSidebar from "@/components/admin-sidebar";
 // Mock store ID for demo
 const STORE_ID = "demo-store-id";
 
-const overviewMetrics = [
-  {
-    title: "Total Revenue Impact",
-    value: "PKR 2,450,000",
-    change: "+15.2%",
-    trend: "up",
-    icon: DollarSign,
-    description: "Last 30 days vs previous period"
-  },
-  {
-    title: "Active Campaigns",
-    value: "12",
-    change: "+3",
-    trend: "up", 
-    icon: Target,
-    description: "Currently running promotions"
-  },
-  {
-    title: "Conversion Rate",
-    value: "23.8%",
-    change: "+4.2%",
-    trend: "up",
-    icon: TrendingUp,
-    description: "Campaign-driven conversions"
-  },
-  {
-    title: "Average Order Value",
-    value: "PKR 4,850",
-    change: "+8.7%",
-    trend: "up", 
-    icon: ShoppingCart,
-    description: "With active promotions"
-  }
-];
+// Utility functions for formatting
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-PK', {
+    style: 'currency',
+    currency: 'PKR',
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
 
-const recentCampaigns = [
-  {
-    id: "1",
-    name: "Eid Special - 30% Off Skincare",
-    status: "active",
-    type: "percentage",
-    startDate: "2024-04-10",
-    endDate: "2024-04-20",
-    revenue: "PKR 450,000",
-    conversions: 234,
-    progress: 65
-  },
-  {
-    id: "2", 
-    name: "Buy 2 Get 1 Free Lipsticks",
-    status: "active",
-    type: "bogo",
-    startDate: "2024-04-08",
-    endDate: "2024-04-15",
-    revenue: "PKR 320,000",
-    conversions: 156,
-    progress: 80
-  },
-  {
-    id: "3",
-    name: "Free Delivery on Orders 2500+",
-    status: "active", 
-    type: "shipping",
-    startDate: "2024-04-01",
-    endDate: "2024-04-30",
-    revenue: "PKR 180,000",
-    conversions: 89,
-    progress: 35
-  },
-  {
-    id: "4",
-    name: "Spring Bundle Collection",
-    status: "paused",
-    type: "bundle", 
-    startDate: "2024-03-25",
-    endDate: "2024-04-10",
-    revenue: "PKR 290,000",
-    conversions: 67,
-    progress: 45
-  },
-  {
-    id: "5",
-    name: "Valentine's Flash Sale",
-    status: "expired",
-    type: "flash_sale",
-    startDate: "2024-02-10",
-    endDate: "2024-02-15",
-    revenue: "PKR 680,000",
-    conversions: 412,
-    progress: 100
-  }
-];
+function formatDate(dateString: string): string {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric'
+  });
+}
 
-const topPerformingProducts = [
-  {
-    name: "Premium Face Serum",
-    revenue: "PKR 450,000",
-    conversions: 234,
-    discount: "25% off"
-  },
-  {
-    name: "Luxury Lipstick Set", 
-    revenue: "PKR 380,000",
-    conversions: 189,
-    discount: "Buy 2 Get 1"
-  },
-  {
-    name: "Skincare Bundle",
-    revenue: "PKR 320,000", 
-    conversions: 156,
-    discount: "30% off"
-  }
-];
+function calculateProgress(startDate: string, endDate: string): number {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  const now = Date.now();
+  
+  if (now < start) return 0;
+  if (now > end) return 100;
+  
+  return Math.round(((now - start) / (end - start)) * 100);
+}
 
 function StatusBadge({ status }: { status: string }) {
   const variants = {
@@ -163,16 +80,103 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function AdminDashboard() {
   const [timeRange, setTimeRange] = useState("30d");
+  const { toast } = useToast();
 
-  const { data: analyticsData, isLoading } = useQuery({
+  // Fetch analytics data
+  const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
     queryKey: ['/api/stores', STORE_ID, 'analytics', timeRange],
     enabled: !!STORE_ID,
   });
 
-  const { data: campaignsData } = useQuery({
+  // Fetch campaigns data
+  const { data: campaignsData, isLoading: campaignsLoading } = useQuery({
     queryKey: ['/api/stores', STORE_ID, 'campaigns'],
     enabled: !!STORE_ID,
   });
+
+  // Refresh data mutation
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'analytics'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] })
+      ]);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Data refreshed",
+        description: "Dashboard data has been updated",
+      });
+    },
+  });
+
+  // Calculate overview metrics from real data
+  const overviewMetrics = [
+    {
+      title: "Total Revenue Impact",
+      value: analyticsData ? formatCurrency(analyticsData.totalRevenueImpact || 0) : "Loading...",
+      change: "+15.2%", // This would come from analytics comparison
+      trend: "up" as const,
+      icon: DollarSign,
+      description: "Last 30 days vs previous period"
+    },
+    {
+      title: "Active Campaigns",
+      value: campaignsData ? campaignsData.filter((c: any) => c.status === 'active').length.toString() : "Loading...",
+      change: "+3",
+      trend: "up" as const, 
+      icon: Target,
+      description: "Currently running promotions"
+    },
+    {
+      title: "Conversion Rate",
+      value: analyticsData ? `${(analyticsData.conversionRate || 0).toFixed(1)}%` : "Loading...",
+      change: "+4.2%",
+      trend: "up" as const,
+      icon: TrendingUp,
+      description: "Campaign-driven conversions"
+    },
+    {
+      title: "Average Order Value",
+      value: analyticsData ? formatCurrency(analyticsData.averageOrderValue || 0) : "Loading...",
+      change: "+8.7%",
+      trend: "up" as const, 
+      icon: ShoppingCart,
+      description: "With active promotions"
+    }
+  ];
+
+  // Get recent campaigns from real data
+  const recentCampaigns = campaignsData ? campaignsData.slice(0, 5).map((campaign: any) => ({
+    ...campaign,
+    progress: calculateProgress(campaign.startDate, campaign.endDate),
+    revenue: formatCurrency(0), // This would come from analytics
+    conversions: 0 // This would come from analytics
+  })) : [];
+
+  // Mock top performing products for now (would be calculated from analytics)
+  const topPerformingProducts = [
+    {
+      name: "Premium Face Serum",
+      revenue: "PKR 450,000",
+      conversions: 234,
+      discount: "25% off"
+    },
+    {
+      name: "Luxury Lipstick Set", 
+      revenue: "PKR 380,000",
+      conversions: 189,
+      discount: "Buy 2 Get 1"
+    },
+    {
+      name: "Skincare Bundle",
+      revenue: "PKR 320,000", 
+      conversions: 156,
+      discount: "30% off"
+    }
+  ];
+
+  const isLoading = analyticsLoading || campaignsLoading;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -191,8 +195,14 @@ export default function AdminDashboard() {
               </p>
             </div>
             <div className="flex items-center space-x-3">
-              <Button variant="outline" size="sm" data-testid="button-refresh">
-                <RefreshCw className="mr-2 h-4 w-4" />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending}
+                data-testid="button-refresh"
+              >
+                <RefreshCw className={cn("mr-2 h-4 w-4", refreshMutation.isPending && "animate-spin")} />
                 Refresh
               </Button>
               <Button variant="outline" size="sm" data-testid="button-export">
@@ -219,7 +229,13 @@ export default function AdminDashboard() {
                   <metric.icon className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{metric.value}</div>
+                  <div className="text-2xl font-bold text-foreground">
+                    {isLoading ? (
+                      <div className="h-8 w-24 animate-pulse bg-muted rounded" />
+                    ) : (
+                      metric.value
+                    )}
+                  </div>
                   <div className="flex items-center text-xs">
                     {metric.trend === "up" ? (
                       <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
@@ -264,41 +280,76 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {recentCampaigns.map((campaign) => (
-                    <div 
-                      key={campaign.id}
-                      className="flex items-center justify-between rounded-lg border border-border bg-card/50 p-4"
-                      data-testid={`campaign-${campaign.id}`}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3">
-                          <h4 className="font-medium text-foreground">{campaign.name}</h4>
-                          <StatusBadge status={campaign.status} />
-                          <Badge variant="secondary" className="text-xs">
-                            {campaign.type}
-                          </Badge>
-                        </div>
-                        <div className="mt-2 flex items-center space-x-4 text-sm text-muted-foreground">
-                          <span className="flex items-center">
-                            <Calendar className="mr-1 h-3 w-3" />
-                            {campaign.startDate} - {campaign.endDate}
-                          </span>
-                          <span>Revenue: {campaign.revenue}</span>
-                          <span>Conversions: {campaign.conversions}</span>
-                        </div>
-                        <div className="mt-3">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="text-foreground">{campaign.progress}%</span>
+                  {isLoading ? (
+                    // Loading skeleton
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="animate-pulse rounded-lg border border-border bg-card/50 p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="h-4 w-48 bg-muted rounded" />
+                            <div className="h-5 w-16 bg-muted rounded" />
+                            <div className="h-5 w-12 bg-muted rounded" />
                           </div>
-                          <Progress value={campaign.progress} className="mt-1" />
+                          <div className="flex items-center space-x-4">
+                            <div className="h-3 w-32 bg-muted rounded" />
+                            <div className="h-3 w-24 bg-muted rounded" />
+                            <div className="h-3 w-20 bg-muted rounded" />
+                          </div>
+                          <div className="h-2 w-full bg-muted rounded" />
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
+                    ))
+                  ) : recentCampaigns.length > 0 ? (
+                    recentCampaigns.map((campaign: any) => (
+                      <div 
+                        key={campaign.id}
+                        className="flex items-center justify-between rounded-lg border border-border bg-card/50 p-4"
+                        data-testid={`campaign-${campaign.id}`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <h4 className="font-medium text-foreground">{campaign.name}</h4>
+                            <StatusBadge status={campaign.status} />
+                            <Badge variant="secondary" className="text-xs">
+                              {campaign.type}
+                            </Badge>
+                          </div>
+                          <div className="mt-2 flex items-center space-x-4 text-sm text-muted-foreground">
+                            <span className="flex items-center">
+                              <Calendar className="mr-1 h-3 w-3" />
+                              {formatDate(campaign.startDate)} - {formatDate(campaign.endDate)}
+                            </span>
+                            <span>Revenue: {campaign.revenue}</span>
+                            <span>Conversions: {campaign.conversions}</span>
+                          </div>
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Progress</span>
+                              <span className="text-foreground">{campaign.progress}%</span>
+                            </div>
+                            <Progress value={campaign.progress} className="mt-1" />
+                          </div>
+                        </div>
+                        <Link href={`/admin/campaigns?edit=${campaign.id}`}>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <Target className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                      <h3 className="mt-4 text-sm font-medium text-foreground">No campaigns yet</h3>
+                      <p className="mt-2 text-xs text-muted-foreground">Get started by creating your first discount campaign.</p>
+                      <Link href="/admin/campaigns">
+                        <Button size="sm" className="mt-4">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Campaign
+                        </Button>
+                      </Link>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>

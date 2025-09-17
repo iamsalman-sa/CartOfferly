@@ -123,48 +123,7 @@ const seasonalThemes = {
   }
 };
 
-// Mock seasonal promotions data
-const mockPromotions = [
-  {
-    id: "1",
-    name: "Eid Mubarak Special",
-    theme: "eid",
-    bannerText: "🌙 Blessed Eid Mubarak! Enjoy 40% off on all beauty essentials",
-    bannerColor: "#D4AF37",
-    textColor: "#FFFFFF",
-    autoActivate: true,
-    activationDate: "2024-04-10",
-    deactivationDate: "2024-04-20",
-    isActive: true,
-    createdAt: "2024-04-01T10:00:00Z"
-  },
-  {
-    id: "2",
-    name: "Summer Glow Campaign",
-    theme: "summer", 
-    bannerText: "☀️ Summer Glow Collection! Beat the heat with fresh beauty looks",
-    bannerColor: "#EA580C",
-    textColor: "#FFFFFF",
-    autoActivate: false,
-    activationDate: "2024-05-01",
-    deactivationDate: "2024-08-31",
-    isActive: false,
-    createdAt: "2024-03-15T09:00:00Z"
-  },
-  {
-    id: "3",
-    name: "Valentine's Day Romance",
-    theme: "valentine",
-    bannerText: "💖 Valentine's Day Special! Show love with beautiful gifts",
-    bannerColor: "#DC2626",
-    textColor: "#FFFFFF",
-    autoActivate: true,
-    activationDate: "2024-02-10",
-    deactivationDate: "2024-02-15",
-    isActive: false,
-    createdAt: "2024-02-01T08:00:00Z"
-  }
-];
+// Mock data removed - now using real API calls
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
   return (
@@ -467,8 +426,11 @@ export default function SeasonalPromotions() {
   const [editingPromotion, setEditingPromotion] = useState<any>(null);
   const { toast } = useToast();
 
-  // Mock data for now
-  const promotions = mockPromotions;
+  // Fetch real seasonal promotions data
+  const { data: promotions = [], isLoading, isError } = useQuery({
+    queryKey: ['/api/stores', STORE_ID, 'seasonal-promotions'],
+    enabled: !!STORE_ID,
+  });
 
   const createPromotionMutation = useMutation({
     mutationFn: async (data: SeasonalPromotionFormData) => {
@@ -480,12 +442,13 @@ export default function SeasonalPromotions() {
         description: "Seasonal promotion created successfully",
       });
       setIsCreateDialogOpen(false);
+      setEditingPromotion(null);
       queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'seasonal-promotions'] });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to create seasonal promotion",
+        description: error?.message || "Failed to create seasonal promotion",
         variant: "destructive",
       });
     },
@@ -591,7 +554,50 @@ export default function SeasonalPromotions() {
 
           {/* Promotions List */}
           <div className="space-y-4">
-            {promotions.map((promotion) => (
+            {isLoading ? (
+              // Loading skeleton
+              Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="card-hover animate-pulse">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="h-4 w-4 bg-muted rounded" />
+                          <div className="h-5 w-48 bg-muted rounded" />
+                          <div className="h-5 w-16 bg-muted rounded" />
+                          <div className="h-5 w-20 bg-muted rounded" />
+                        </div>
+                        <div className="h-12 w-full bg-muted rounded-lg" />
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="h-4 w-full bg-muted rounded" />
+                          <div className="h-4 w-full bg-muted rounded" />
+                          <div className="h-4 w-full bg-muted rounded" />
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="h-8 w-8 bg-muted rounded" />
+                        <div className="h-8 w-8 bg-muted rounded" />
+                        <div className="h-8 w-8 bg-muted rounded" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : isError ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <X className="mx-auto h-12 w-12 text-red-500 mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">Failed to load promotions</h3>
+                  <p className="text-muted-foreground mb-4">
+                    There was an error loading seasonal promotions. Please try refreshing the page.
+                  </p>
+                  <Button onClick={() => window.location.reload()}>
+                    Refresh Page
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (promotions as any[])?.length > 0 ? (
+              (promotions as any[]).map((promotion: any) => (
               <Card key={promotion.id} className="card-hover" data-testid={`promotion-card-${promotion.id}`}>
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
@@ -676,10 +682,11 @@ export default function SeasonalPromotions() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              ))
+            ) : null}
           </div>
 
-          {promotions.length === 0 && (
+          {!isLoading && !isError && (promotions as any[])?.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center">
                 <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -687,7 +694,7 @@ export default function SeasonalPromotions() {
                 <p className="text-muted-foreground mb-4">
                   Create your first seasonal campaign to engage customers during holidays
                 </p>
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-first-promotion">
                   <Plus className="mr-2 h-4 w-4" />
                   Create Seasonal Promotion
                 </Button>

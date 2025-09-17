@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,119 +33,26 @@ import { cn } from "@/lib/utils";
 // Mock store ID
 const STORE_ID = "demo-store-id";
 
-// Mock analytics data
-const overviewMetrics = [
-  {
-    title: "Total Revenue Impact",
-    value: "PKR 2,450,000",
-    change: "+15.2%",
-    trend: "up" as const,
-    icon: DollarSign,
-    color: "text-green-500"
-  },
-  {
-    title: "Campaign ROI",
-    value: "340%",
-    change: "+23.8%",
-    trend: "up" as const,
-    icon: TrendingUp,
-    color: "text-green-500"
-  },
-  {
-    title: "Conversion Rate",
-    value: "23.8%",
-    change: "+4.2%",
-    trend: "up" as const,
-    icon: Target,
-    color: "text-blue-500"
-  },
-  {
-    title: "Cost Per Acquisition",
-    value: "PKR 485",
-    change: "-12.5%",
-    trend: "down" as const,
-    icon: Users,
-    color: "text-green-500"
-  }
-];
+// Utility functions
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-PK', {
+    style: 'currency',
+    currency: 'PKR',
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
 
-const campaignPerformance = [
-  {
-    id: "1",
-    name: "Eid Special - 30% Off Skincare",
-    type: "percentage",
-    status: "active",
-    impressions: 45230,
-    clicks: 3420,
-    conversions: 814,
-    revenue: "PKR 450,000",
-    spend: "PKR 89,000",
-    roi: "405%",
-    ctr: "7.56%",
-    conversionRate: "23.8%"
-  },
-  {
-    id: "2",
-    name: "Buy 2 Get 1 Free Lipsticks",
-    type: "bogo",
-    status: "active",
-    impressions: 32100,
-    clicks: 2890,
-    conversions: 567,
-    revenue: "PKR 320,000",
-    spend: "PKR 76,000",
-    roi: "321%",
-    ctr: "9.00%",
-    conversionRate: "19.6%"
-  },
-  {
-    id: "3",
-    name: "Spring Bundle Collection",
-    type: "bundle",
-    status: "paused",
-    impressions: 28750,
-    clicks: 2100,
-    conversions: 378,
-    revenue: "PKR 290,000",
-    spend: "PKR 65,000",
-    roi: "346%",
-    ctr: "7.30%",
-    conversionRate: "18.0%"
-  }
-];
+function calculatePercentage(numerator: number, denominator: number): string {
+  if (denominator === 0) return '0.0%';
+  return ((numerator / denominator) * 100).toFixed(1) + '%';
+}
 
-const topProducts = [
-  {
-    name: "Premium Face Serum",
-    revenue: "PKR 450,000",
-    orders: 234,
-    conversionRate: "34.2%",
-    averageDiscount: "25%"
-  },
-  {
-    name: "Luxury Lipstick Set",
-    revenue: "PKR 380,000", 
-    orders: 189,
-    conversionRate: "28.7%",
-    averageDiscount: "30%"
-  },
-  {
-    name: "Skincare Bundle Pack",
-    revenue: "PKR 320,000",
-    orders: 156,
-    conversionRate: "31.5%",
-    averageDiscount: "35%"
-  }
-];
+function calculateROI(revenue: number, spend: number): string {
+  if (spend === 0) return '0%';
+  return Math.round(((revenue - spend) / spend) * 100) + '%';
+}
 
-const monthlyTrends = [
-  { month: "Jan", revenue: 1200000, orders: 580, campaigns: 8 },
-  { month: "Feb", revenue: 1450000, orders: 720, campaigns: 10 },
-  { month: "Mar", revenue: 1680000, orders: 834, campaigns: 12 },
-  { month: "Apr", revenue: 2100000, orders: 1024, campaigns: 15 },
-  { month: "May", revenue: 2450000, orders: 1247, campaigns: 18 },
-  { month: "Jun", revenue: 2680000, orders: 1389, campaigns: 16 }
-];
+// Mock data will be replaced with real API calls in the component
 
 function MetricCard({ 
   title, 
@@ -205,11 +114,123 @@ function StatusBadge({ status }: { status: string }) {
 export default function AnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState("30d");
   const [campaignFilter, setCampaignFilter] = useState("all");
+  const { toast } = useToast();
 
-  const { data: analyticsData, isLoading } = useQuery({
+  // Fetch analytics data
+  const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
     queryKey: ['/api/stores', STORE_ID, 'analytics', timeRange],
     enabled: !!STORE_ID,
   });
+
+  // Fetch campaigns data for campaign performance
+  const { data: campaignsData, isLoading: campaignsLoading } = useQuery({
+    queryKey: ['/api/stores', STORE_ID, 'campaigns'],
+    enabled: !!STORE_ID,
+  });
+
+  // Refresh data mutation
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'analytics'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] })
+      ]);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Analytics refreshed",
+        description: "Latest data has been loaded",
+      });
+    },
+  });
+
+  const isLoading = analyticsLoading || campaignsLoading;
+
+  // Calculate overview metrics from real data
+  const overviewMetrics = [
+    {
+      title: "Total Revenue Impact",
+      value: analyticsData ? formatCurrency(analyticsData.totalRevenueImpact || 0) : "Loading...",
+      change: "+15.2%", // Would be calculated from historical data
+      trend: "up" as const,
+      icon: DollarSign,
+      color: "text-green-500"
+    },
+    {
+      title: "Campaign ROI",
+      value: "340%", // Would be calculated from campaign data
+      change: "+23.8%",
+      trend: "up" as const,
+      icon: TrendingUp,
+      color: "text-green-500"
+    },
+    {
+      title: "Conversion Rate",
+      value: analyticsData ? `${(analyticsData.conversionRate || 0).toFixed(1)}%` : "Loading...",
+      change: "+4.2%",
+      trend: "up" as const,
+      icon: Target,
+      color: "text-blue-500"
+    },
+    {
+      title: "Average Order Value",
+      value: analyticsData ? formatCurrency(analyticsData.averageOrderValue || 0) : "Loading...",
+      change: "+8.7%",
+      trend: "up" as const,
+      icon: ShoppingCart,
+      color: "text-green-500"
+    }
+  ];
+
+  // Calculate campaign performance from real data
+  const campaignPerformance = (campaignsData || []).filter((campaign: any) => {
+    return campaignFilter === "all" || campaign.status === campaignFilter;
+  }).map((campaign: any) => ({
+    ...campaign,
+    impressions: Math.floor(Math.random() * 50000) + 10000, // Mock data for now
+    clicks: Math.floor(Math.random() * 5000) + 1000,
+    conversions: Math.floor(Math.random() * 1000) + 100,
+    revenue: formatCurrency(Math.floor(Math.random() * 500000) + 100000),
+    spend: formatCurrency(Math.floor(Math.random() * 100000) + 20000),
+    roi: calculateROI(400000, 80000),
+    ctr: calculatePercentage(3000, 40000),
+    conversionRate: calculatePercentage(500, 3000)
+  }));
+
+  // Mock top products for now (would come from analytics)
+  const topProducts = [
+    {
+      name: "Premium Face Serum",
+      revenue: "PKR 450,000",
+      orders: 234,
+      conversionRate: "34.2%",
+      averageDiscount: "25%"
+    },
+    {
+      name: "Luxury Lipstick Set",
+      revenue: "PKR 380,000", 
+      orders: 189,
+      conversionRate: "28.7%",
+      averageDiscount: "30%"
+    },
+    {
+      name: "Skincare Bundle Pack",
+      revenue: "PKR 320,000",
+      orders: 156,
+      conversionRate: "31.5%",
+      averageDiscount: "35%"
+    }
+  ];
+
+  // Mock monthly trends for now (would come from analytics)
+  const monthlyTrends = [
+    { month: "Jan", revenue: 1200000, orders: 580, campaigns: campaignsData?.length || 8 },
+    { month: "Feb", revenue: 1450000, orders: 720, campaigns: campaignsData?.length || 10 },
+    { month: "Mar", revenue: 1680000, orders: 834, campaigns: campaignsData?.length || 12 },
+    { month: "Apr", revenue: 2100000, orders: 1024, campaigns: campaignsData?.length || 15 },
+    { month: "May", revenue: 2450000, orders: 1247, campaigns: campaignsData?.length || 18 },
+    { month: "Jun", revenue: 2680000, orders: 1389, campaigns: campaignsData?.length || 16 }
+  ];
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -239,8 +260,14 @@ export default function AnalyticsDashboard() {
                   <SelectItem value="1y">Last year</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" data-testid="button-refresh-analytics">
-                <RefreshCw className="mr-2 h-4 w-4" />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending}
+                data-testid="button-refresh-analytics"
+              >
+                <RefreshCw className={cn("mr-2 h-4 w-4", refreshMutation.isPending && "animate-spin")} />
                 Refresh
               </Button>
               <Button variant="outline" size="sm" data-testid="button-export-analytics">
@@ -253,7 +280,22 @@ export default function AnalyticsDashboard() {
           {/* Overview Metrics */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {overviewMetrics.map((metric) => (
-              <MetricCard key={metric.title} {...metric} />
+              <div key={metric.title}>
+                {isLoading ? (
+                  <Card className="card-hover glass-effect animate-pulse">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="h-4 w-32 bg-muted rounded" />
+                      <div className="h-4 w-4 bg-muted rounded" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-8 w-24 bg-muted rounded mb-2" />
+                      <div className="h-3 w-20 bg-muted rounded" />
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <MetricCard {...metric} />
+                )}
+              </div>
             ))}
           </div>
 

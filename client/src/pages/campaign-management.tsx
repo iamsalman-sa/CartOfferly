@@ -60,65 +60,23 @@ const campaignSchema = z.object({
 
 type CampaignFormData = z.infer<typeof campaignSchema>;
 
-// Mock campaigns data
-const mockCampaigns = [
-  {
-    id: "1",
-    name: "Eid Special - 30% Off Skincare",
-    description: "Exclusive Eid promotion on premium skincare products",
-    type: "percentage",
-    status: "active",
-    priority: 1,
-    startDate: "2024-04-10",
-    endDate: "2024-04-20",
-    usageLimit: 1000,
-    usageCount: 234,
-    minimumOrderValue: "2000.00",
-    maximumDiscountAmount: "1500.00",
-    stackable: false,
-    customerSegment: "all",
-    createdAt: "2024-04-10T09:00:00Z",
-    revenue: "PKR 450,000",
-    conversions: 234
-  },
-  {
-    id: "2",
-    name: "Buy 2 Get 1 Free Lipsticks",
-    description: "Popular BOGO offer on lipstick collection",
-    type: "bogo",
-    status: "active",
-    priority: 2,
-    startDate: "2024-04-08",
-    endDate: "2024-04-15",
-    usageLimit: 500,
-    usageCount: 156,
-    minimumOrderValue: "1000.00",
-    stackable: true,
-    customerSegment: "all",
-    createdAt: "2024-04-08T10:00:00Z",
-    revenue: "PKR 320,000",
-    conversions: 156
-  },
-  {
-    id: "3",
-    name: "Spring Bundle Collection",
-    description: "Seasonal beauty bundle with discounted pricing",
-    type: "bundle",
-    status: "paused",
-    priority: 3,
-    startDate: "2024-03-25",
-    endDate: "2024-04-10",
-    usageLimit: 200,
-    usageCount: 67,
-    minimumOrderValue: "3000.00",
-    maximumDiscountAmount: "2000.00",
-    stackable: false,
-    customerSegment: "returning",
-    createdAt: "2024-03-25T08:00:00Z",
-    revenue: "PKR 290,000",
-    conversions: 67
-  }
-];
+// Utility function to format dates
+function formatDate(dateString: string): string {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-PK', {
+    style: 'currency',
+    currency: 'PKR',
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
 
 function StatusBadge({ status }: { status: string }) {
   const variants = {
@@ -422,8 +380,14 @@ export default function CampaignManagement() {
   const [editingCampaign, setEditingCampaign] = useState<any>(null);
   const { toast } = useToast();
 
-  // Mock data for now
-  const campaigns = mockCampaigns.filter(campaign => {
+  // Fetch campaigns data
+  const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError } = useQuery({
+    queryKey: ['/api/stores', STORE_ID, 'campaigns'],
+    enabled: !!STORE_ID,
+  });
+
+  // Filter campaigns based on search and filters
+  const campaigns = (campaignsData || []).filter((campaign: any) => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || campaign.status === statusFilter;
     const matchesType = typeFilter === "all" || campaign.type === typeFilter;
@@ -472,20 +436,53 @@ export default function CampaignManagement() {
     },
   });
 
-  const updateCampaignStatus = async (campaignId: string, newStatus: string) => {
-    try {
-      await apiRequest("PATCH", `/api/campaigns/${campaignId}/status`, { status: newStatus });
+  const updateCampaignStatusMutation = useMutation({
+    mutationFn: async ({ campaignId, newStatus }: { campaignId: string; newStatus: string }) => {
+      return apiRequest("PATCH", `/api/campaigns/${campaignId}/status`, { status: newStatus });
+    },
+    onSuccess: (_, { newStatus }) => {
       toast({
         title: "Success",
         description: `Campaign ${newStatus} successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
-    } catch (error) {
+    },
+    onError: (_, { newStatus }) => {
       toast({
         title: "Error",
         description: `Failed to ${newStatus} campaign`,
         variant: "destructive",
       });
+    },
+  });
+
+  const deleteCampaignMutation = useMutation({
+    mutationFn: async (campaignId: string) => {
+      return apiRequest("DELETE", `/api/campaigns/${campaignId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Campaign deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete campaign",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateCampaignStatus = (campaignId: string, newStatus: string) => {
+    updateCampaignStatusMutation.mutate({ campaignId, newStatus });
+  };
+
+  const handleDeleteCampaign = (campaignId: string) => {
+    if (confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
+      deleteCampaignMutation.mutate(campaignId);
     }
   };
 
@@ -585,7 +582,43 @@ export default function CampaignManagement() {
 
           {/* Campaigns List */}
           <div className="space-y-4">
-            {campaigns.map((campaign) => (
+            {campaignsLoading ? (
+              // Loading skeleton
+              Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="h-5 w-5 bg-muted rounded" />
+                        <div className="h-6 w-48 bg-muted rounded" />
+                        <div className="h-5 w-16 bg-muted rounded" />
+                        <div className="h-5 w-20 bg-muted rounded" />
+                      </div>
+                      <div className="h-4 w-96 bg-muted rounded" />
+                      <div className="grid grid-cols-4 gap-4">
+                        <div className="h-4 w-32 bg-muted rounded" />
+                        <div className="h-4 w-24 bg-muted rounded" />
+                        <div className="h-4 w-28 bg-muted rounded" />
+                        <div className="h-4 w-20 bg-muted rounded" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : campaignsError ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Target className="mx-auto h-12 w-12 text-red-500 mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">Error loading campaigns</h3>
+                  <p className="text-muted-foreground mb-4">
+                    There was an error loading your campaigns. Please try again.
+                  </p>
+                  <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] })}>
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : campaigns.map((campaign: any) => (
               <Card key={campaign.id} className="card-hover" data-testid={`campaign-card-${campaign.id}`}>
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
@@ -607,22 +640,24 @@ export default function CampaignManagement() {
                         <div>
                           <span className="text-muted-foreground">Period: </span>
                           <span className="text-foreground">
-                            {campaign.startDate} - {campaign.endDate}
+                            {formatDate(campaign.startDate)} - {formatDate(campaign.endDate)}
                           </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Usage: </span>
                           <span className="text-foreground">
-                            {campaign.usageCount}/{campaign.usageLimit}
+                            {campaign.usageCount || 0}/{campaign.usageLimit || 'Unlimited'}
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Revenue: </span>
-                          <span className="text-foreground">{campaign.revenue}</span>
+                          <span className="text-muted-foreground">Min Order: </span>
+                          <span className="text-foreground">
+                            {campaign.minimumOrderValue ? formatCurrency(parseFloat(campaign.minimumOrderValue)) : 'None'}
+                          </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Conversions: </span>
-                          <span className="text-foreground">{campaign.conversions}</span>
+                          <span className="text-muted-foreground">Priority: </span>
+                          <span className="text-foreground">{campaign.priority}</span>
                         </div>
                       </div>
                     </div>
@@ -633,6 +668,7 @@ export default function CampaignManagement() {
                           variant="outline"
                           size="sm"
                           onClick={() => updateCampaignStatus(campaign.id, "paused")}
+                          disabled={updateCampaignStatusMutation.isPending}
                           data-testid={`button-pause-${campaign.id}`}
                         >
                           <Pause className="h-4 w-4" />
@@ -643,7 +679,19 @@ export default function CampaignManagement() {
                           variant="outline"
                           size="sm"
                           onClick={() => updateCampaignStatus(campaign.id, "active")}
+                          disabled={updateCampaignStatusMutation.isPending}
                           data-testid={`button-resume-${campaign.id}`}
+                        >
+                          <Play className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {campaign.status === "draft" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateCampaignStatus(campaign.id, "active")}
+                          disabled={updateCampaignStatusMutation.isPending}
+                          data-testid={`button-activate-${campaign.id}`}
                         >
                           <Play className="h-4 w-4" />
                         </Button>
@@ -659,9 +707,11 @@ export default function CampaignManagement() {
                       <Button
                         variant="outline"
                         size="sm"
-                        data-testid={`button-copy-${campaign.id}`}
+                        onClick={() => handleDeleteCampaign(campaign.id)}
+                        disabled={deleteCampaignMutation.isPending}
+                        data-testid={`button-delete-${campaign.id}`}
                       >
-                        <Copy className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                       <Link href={`/admin/analytics?campaign=${campaign.id}`}>
                         <Button

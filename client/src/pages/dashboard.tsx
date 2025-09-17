@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Gift, TrendingUp, Target, Coins, Rocket } from "lucide-react";
+import { Gift, TrendingUp, Target, Coins, Rocket, Settings, BarChart3, Tag, Calendar } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Dashboard() {
   const [timerDuration, setTimerDuration] = useState("25");
@@ -47,7 +48,7 @@ export default function Dashboard() {
                   <h1 className="text-2xl font-bold text-foreground" data-testid="app-title">
                     Premium Cart Rewards
                   </h1>
-                  <p className="text-muted-foreground">Milestone-based rewards system</p>
+                  <p className="text-muted-foreground">Advanced discount management system</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2 bg-muted px-4 py-2 rounded-md">
@@ -56,6 +57,64 @@ export default function Dashboard() {
                   Connected
                 </span>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Admin Discount Management Section */}
+      <div className="max-w-4xl mx-auto mb-8">
+        <Card className="shadow-xl border border-border bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">🎯 Discount Management Hub</h2>
+                <p className="text-muted-foreground">Professional campaign & bundle management for Real Beauty</p>
+              </div>
+              <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded-lg">
+                <span className="text-white font-semibold text-sm">NEW FEATURES</span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Link to="/admin" className="block">
+                <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white" data-testid="button-admin-dashboard">
+                  <Settings className="w-6 h-6" />
+                  <span className="text-sm font-medium">Admin Dashboard</span>
+                </Button>
+              </Link>
+              
+              <Link to="/admin/campaigns" className="block">
+                <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white" data-testid="button-campaign-management">
+                  <Tag className="w-6 h-6" />
+                  <span className="text-sm font-medium">Campaign Manager</span>
+                </Button>
+              </Link>
+              
+              <Link to="/admin/analytics" className="block">
+                <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white" data-testid="button-analytics-dashboard">
+                  <BarChart3 className="w-6 h-6" />
+                  <span className="text-sm font-medium">Analytics Hub</span>
+                </Button>
+              </Link>
+              
+              <Link to="/admin/seasonal" className="block">
+                <Button className="w-full h-20 flex flex-col items-center justify-center space-y-2 bg-gradient-to-br from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white" data-testid="button-seasonal-promotions">
+                  <Calendar className="w-6 h-6" />
+                  <span className="text-sm font-medium">Seasonal Campaigns</span>
+                </Button>
+              </Link>
+            </div>
+            
+            <div className="mt-6 p-4 bg-white/50 dark:bg-black/20 rounded-lg border border-purple-200 dark:border-purple-800">
+              <h3 className="font-semibold text-foreground mb-2">✨ New Admin Features Available:</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Create & manage discount campaigns (BOGO, percentage, fixed amount)</li>
+                <li>• Design attractive product bundles with custom pricing</li>
+                <li>• Schedule seasonal promotions (Eid, Ramadan, Valentine's, etc.)</li>
+                <li>• Track performance with advanced analytics & ROI metrics</li>
+                <li>• No coding required - visual campaign builder interface</li>
+              </ul>
             </div>
           </CardContent>
         </Card>
