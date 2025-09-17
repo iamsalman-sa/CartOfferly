@@ -94,7 +94,7 @@ export const discountRules = pgTable("discount_rules", {
   discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(),
   buyQuantity: integer("buy_quantity").default(1),
   getQuantity: integer("get_quantity").default(0),
-  getDiscountPercent: decimal("get_discount_percent", { precision: 5, 2 }).default("0"),
+  getDiscountPercent: decimal("get_discount_percent", { precision: 5, scale: 2 }).default("0"),
   applyToProducts: text("apply_to_products").default("all"), // 'all', 'specific', 'categories'
   conditions: jsonb("conditions").default("{}"), // Flexible conditions storage
   createdAt: timestamp("created_at").defaultNow(),

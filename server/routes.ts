@@ -1,7 +1,19 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertStoreSchema, insertProductSchema, insertMilestoneSchema, insertCartSessionSchema } from "@shared/schema";
+import { 
+  insertStoreSchema, 
+  insertProductSchema, 
+  insertMilestoneSchema, 
+  insertCartSessionSchema,
+  insertDiscountCampaignSchema,
+  insertDiscountRuleSchema,
+  insertCampaignProductSchema,
+  insertBundleConfigurationSchema,
+  insertBundleItemSchema,
+  insertSeasonalPromotionSchema,
+  insertDiscountAnalyticsSchema
+} from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -260,6 +272,421 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(createdMilestones);
     } catch (error) {
       res.status(500).json({ message: "Error initializing milestones", error });
+    }
+  });
+
+  // Discount Campaign Management Routes
+  app.post("/api/stores/:storeId/campaigns", async (req, res) => {
+    try {
+      const { storeId } = req.params;
+      const campaignData = insertDiscountCampaignSchema.parse({ ...req.body, storeId });
+      const campaign = await storage.createDiscountCampaign(campaignData);
+      res.json(campaign);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid campaign data", error });
+    }
+  });
+
+  app.get("/api/stores/:storeId/campaigns", async (req, res) => {
+    try {
+      const { storeId } = req.params;
+      const campaigns = await storage.getDiscountCampaignsByStore(storeId);
+      res.json(campaigns);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching campaigns", error });
+    }
+  });
+
+  app.get("/api/campaigns/:campaignId", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const campaign = await storage.getDiscountCampaignById(campaignId);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      res.json(campaign);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching campaign", error });
+    }
+  });
+
+  app.put("/api/campaigns/:campaignId", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const updates = req.body;
+      const updatedCampaign = await storage.updateDiscountCampaign(campaignId, updates);
+      if (!updatedCampaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+      res.json(updatedCampaign);
+    } catch (error) {
+      res.status(400).json({ message: "Error updating campaign", error });
+    }
+  });
+
+  app.delete("/api/campaigns/:campaignId", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      await storage.deleteDiscountCampaign(campaignId);
+      res.json({ message: "Campaign deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting campaign", error });
+    }
+  });
+
+  app.patch("/api/campaigns/:campaignId/status", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const { status } = z.object({ status: z.string() }).parse(req.body);
+      await storage.updateCampaignStatus(campaignId, status);
+      res.json({ message: "Campaign status updated" });
+    } catch (error) {
+      res.status(400).json({ message: "Error updating campaign status", error });
+    }
+  });
+
+  app.get("/api/stores/:storeId/campaigns/active", async (req, res) => {
+    try {
+      const { storeId } = req.params;
+      const campaigns = await storage.getActiveCampaignsByStore(storeId);
+      res.json(campaigns);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching active campaigns", error });
+    }
+  });
+
+  // Discount Rules Management
+  app.post("/api/campaigns/:campaignId/rules", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const ruleData = insertDiscountRuleSchema.parse({ ...req.body, campaignId });
+      const rule = await storage.createDiscountRule(ruleData);
+      res.json(rule);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid rule data", error });
+    }
+  });
+
+  app.get("/api/campaigns/:campaignId/rules", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const rules = await storage.getDiscountRulesByCampaign(campaignId);
+      res.json(rules);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching rules", error });
+    }
+  });
+
+  app.put("/api/rules/:ruleId", async (req, res) => {
+    try {
+      const { ruleId } = req.params;
+      const updates = req.body;
+      const updatedRule = await storage.updateDiscountRule(ruleId, updates);
+      if (!updatedRule) {
+        return res.status(404).json({ message: "Rule not found" });
+      }
+      res.json(updatedRule);
+    } catch (error) {
+      res.status(400).json({ message: "Error updating rule", error });
+    }
+  });
+
+  app.delete("/api/rules/:ruleId", async (req, res) => {
+    try {
+      const { ruleId } = req.params;
+      await storage.deleteDiscountRule(ruleId);
+      res.json({ message: "Rule deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting rule", error });
+    }
+  });
+
+  // Campaign Product Management
+  app.post("/api/campaigns/:campaignId/products", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const { productId, inclusionType } = z.object({
+        productId: z.string(),
+        inclusionType: z.enum(['include', 'exclude'])
+      }).parse(req.body);
+      
+      const campaignProduct = await storage.addProductToCampaign({
+        campaignId,
+        productId,
+        inclusionType
+      });
+      res.json(campaignProduct);
+    } catch (error) {
+      res.status(400).json({ message: "Error adding product to campaign", error });
+    }
+  });
+
+  app.get("/api/campaigns/:campaignId/products", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const products = await storage.getCampaignProducts(campaignId);
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching campaign products", error });
+    }
+  });
+
+  app.delete("/api/campaigns/:campaignId/products/:productId", async (req, res) => {
+    try {
+      const { campaignId, productId } = req.params;
+      await storage.removeProductFromCampaign(campaignId, productId);
+      res.json({ message: "Product removed from campaign" });
+    } catch (error) {
+      res.status(500).json({ message: "Error removing product from campaign", error });
+    }
+  });
+
+  app.get("/api/products/:productId/campaigns", async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const campaigns = await storage.getProductCampaigns(productId);
+      res.json(campaigns);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching product campaigns", error });
+    }
+  });
+
+  // Bundle Configuration Management
+  app.post("/api/campaigns/:campaignId/bundles", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const bundleData = insertBundleConfigurationSchema.parse({ ...req.body, campaignId });
+      const bundle = await storage.createBundleConfiguration(bundleData);
+      res.json(bundle);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid bundle data", error });
+    }
+  });
+
+  app.get("/api/campaigns/:campaignId/bundles", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const bundles = await storage.getBundleConfigurationsByCampaign(campaignId);
+      res.json(bundles);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching bundles", error });
+    }
+  });
+
+  app.get("/api/bundles/:bundleId", async (req, res) => {
+    try {
+      const { bundleId } = req.params;
+      const bundle = await storage.getBundleConfigurationById(bundleId);
+      if (!bundle) {
+        return res.status(404).json({ message: "Bundle not found" });
+      }
+      res.json(bundle);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching bundle", error });
+    }
+  });
+
+  app.put("/api/bundles/:bundleId", async (req, res) => {
+    try {
+      const { bundleId } = req.params;
+      const updates = req.body;
+      const updatedBundle = await storage.updateBundleConfiguration(bundleId, updates);
+      if (!updatedBundle) {
+        return res.status(404).json({ message: "Bundle not found" });
+      }
+      res.json(updatedBundle);
+    } catch (error) {
+      res.status(400).json({ message: "Error updating bundle", error });
+    }
+  });
+
+  app.delete("/api/bundles/:bundleId", async (req, res) => {
+    try {
+      const { bundleId } = req.params;
+      await storage.deleteBundleConfiguration(bundleId);
+      res.json({ message: "Bundle deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting bundle", error });
+    }
+  });
+
+  // Bundle Items Management
+  app.post("/api/bundles/:bundleId/items", async (req, res) => {
+    try {
+      const { bundleId } = req.params;
+      const bundleItemData = insertBundleItemSchema.parse({ ...req.body, bundleId });
+      const bundleItem = await storage.addBundleItem(bundleItemData);
+      res.json(bundleItem);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid bundle item data", error });
+    }
+  });
+
+  app.get("/api/bundles/:bundleId/items", async (req, res) => {
+    try {
+      const { bundleId } = req.params;
+      const items = await storage.getBundleItems(bundleId);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching bundle items", error });
+    }
+  });
+
+  app.delete("/api/bundles/:bundleId/items/:productId", async (req, res) => {
+    try {
+      const { bundleId, productId } = req.params;
+      await storage.removeBundleItem(bundleId, productId);
+      res.json({ message: "Bundle item removed" });
+    } catch (error) {
+      res.status(500).json({ message: "Error removing bundle item", error });
+    }
+  });
+
+  app.patch("/api/bundles/:bundleId/items/:productId/quantity", async (req, res) => {
+    try {
+      const { bundleId, productId } = req.params;
+      const { quantity } = z.object({ quantity: z.number().min(1) }).parse(req.body);
+      await storage.updateBundleItemQuantity(bundleId, productId, quantity);
+      res.json({ message: "Bundle item quantity updated" });
+    } catch (error) {
+      res.status(400).json({ message: "Error updating bundle item quantity", error });
+    }
+  });
+
+  // Seasonal Promotions Management
+  app.post("/api/stores/:storeId/seasonal-promotions", async (req, res) => {
+    try {
+      const { storeId } = req.params;
+      const promotionData = insertSeasonalPromotionSchema.parse({ ...req.body, storeId });
+      const promotion = await storage.createSeasonalPromotion(promotionData);
+      res.json(promotion);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid promotion data", error });
+    }
+  });
+
+  app.get("/api/stores/:storeId/seasonal-promotions", async (req, res) => {
+    try {
+      const { storeId } = req.params;
+      const promotions = await storage.getSeasonalPromotionsByStore(storeId);
+      res.json(promotions);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching seasonal promotions", error });
+    }
+  });
+
+  app.get("/api/stores/:storeId/seasonal-promotions/active", async (req, res) => {
+    try {
+      const { storeId } = req.params;
+      const promotions = await storage.getActiveSeasonalPromotions(storeId);
+      res.json(promotions);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching active seasonal promotions", error });
+    }
+  });
+
+  app.get("/api/seasonal-promotions/:promotionId", async (req, res) => {
+    try {
+      const { promotionId } = req.params;
+      const promotion = await storage.getSeasonalPromotionById(promotionId);
+      if (!promotion) {
+        return res.status(404).json({ message: "Promotion not found" });
+      }
+      res.json(promotion);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching promotion", error });
+    }
+  });
+
+  app.put("/api/seasonal-promotions/:promotionId", async (req, res) => {
+    try {
+      const { promotionId } = req.params;
+      const updates = req.body;
+      const updatedPromotion = await storage.updateSeasonalPromotion(promotionId, updates);
+      if (!updatedPromotion) {
+        return res.status(404).json({ message: "Promotion not found" });
+      }
+      res.json(updatedPromotion);
+    } catch (error) {
+      res.status(400).json({ message: "Error updating promotion", error });
+    }
+  });
+
+  app.delete("/api/seasonal-promotions/:promotionId", async (req, res) => {
+    try {
+      const { promotionId } = req.params;
+      await storage.deleteSeasonalPromotion(promotionId);
+      res.json({ message: "Promotion deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting promotion", error });
+    }
+  });
+
+  app.patch("/api/seasonal-promotions/:promotionId/activate", async (req, res) => {
+    try {
+      const { promotionId } = req.params;
+      await storage.activateSeasonalPromotion(promotionId);
+      res.json({ message: "Promotion activated" });
+    } catch (error) {
+      res.status(500).json({ message: "Error activating promotion", error });
+    }
+  });
+
+  app.patch("/api/seasonal-promotions/:promotionId/deactivate", async (req, res) => {
+    try {
+      const { promotionId } = req.params;
+      await storage.deactivateSeasonalPromotion(promotionId);
+      res.json({ message: "Promotion deactivated" });
+    } catch (error) {
+      res.status(500).json({ message: "Error deactivating promotion", error });
+    }
+  });
+
+  // Discount Analytics Management
+  app.post("/api/campaigns/:campaignId/analytics", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const analyticsData = insertDiscountAnalyticsSchema.parse({ ...req.body, campaignId });
+      const analytics = await storage.createDiscountAnalytics(analyticsData);
+      res.json(analytics);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid analytics data", error });
+    }
+  });
+
+  app.get("/api/campaigns/:campaignId/analytics", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const { startDate, endDate } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : undefined;
+      const end = endDate ? new Date(endDate as string) : undefined;
+      
+      const analytics = await storage.getAnalyticsByCampaign(campaignId, start, end);
+      res.json(analytics);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching analytics", error });
+    }
+  });
+
+  app.get("/api/campaigns/:campaignId/analytics/summary", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const summary = await storage.getAnalyticsSummary(campaignId);
+      res.json(summary);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching analytics summary", error });
+    }
+  });
+
+  app.patch("/api/campaigns/:campaignId/analytics", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const updates = req.body;
+      await storage.updateAnalytics(campaignId, updates);
+      res.json({ message: "Analytics updated" });
+    } catch (error) {
+      res.status(400).json({ message: "Error updating analytics", error });
     }
   });
 
