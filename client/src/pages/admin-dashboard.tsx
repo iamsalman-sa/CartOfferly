@@ -21,7 +21,7 @@ import {
   Filter,
   Download,
   RefreshCw,
-  BarChart3
+  BarChart3,
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -109,6 +109,7 @@ export default function AdminDashboard() {
       });
     },
   });
+
 
   // Calculate overview metrics from real data
   const overviewMetrics = [
