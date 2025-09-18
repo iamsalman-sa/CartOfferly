@@ -368,6 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conversionRate: 23.5, // This would be calculated based on actual data
         averageOrderValue: 4850,
         milestonesHit: rewardHistory.filter(r => r.isRedeemed).length,
+        totalRevenueImpact: 0, // Can be computed from reward history data or set initially
       };
       
       res.json(analytics);
@@ -727,11 +728,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/stores/:storeId/campaigns", async (req, res) => {
     try {
       const { storeId } = req.params;
-      const campaignData = insertDiscountCampaignSchema.parse({ ...req.body, storeId });
+      const requestData = { ...req.body, storeId };
+      
+      // Convert ISO date strings to Date objects if present
+      if (requestData.startDate && typeof requestData.startDate === 'string') {
+        requestData.startDate = new Date(requestData.startDate);
+      }
+      if (requestData.endDate && typeof requestData.endDate === 'string') {
+        requestData.endDate = new Date(requestData.endDate);
+      }
+      
+      const campaignData = insertDiscountCampaignSchema.parse(requestData);
       const campaign = await storage.createDiscountCampaign(campaignData);
       res.json(campaign);
     } catch (error) {
-      res.status(400).json({ message: "Invalid campaign data", error });
+      console.error("Campaign creation error:", error);
+      res.status(400).json({ message: "Invalid campaign data", error: error instanceof Error ? error.message : error });
     }
   });
 

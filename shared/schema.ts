@@ -326,6 +326,8 @@ export const insertProductSchema = createInsertSchema(products).omit({
 export const insertMilestoneSchema = createInsertSchema(milestones).omit({
   id: true,
   createdAt: true,
+}).extend({
+  name: z.string().min(1, "Milestone name is required and cannot be empty"),
 });
 
 export const insertCartSessionSchema = createInsertSchema(cartSessions).omit({
