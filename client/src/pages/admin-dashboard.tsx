@@ -427,10 +427,12 @@ export default function AdminDashboard() {
                     <span>View Analytics</span>
                   </Button>
                 </Link>
-                <Button variant="outline" className="h-20 w-full flex-col" data-testid="action-bulk-import">
-                  <Users className="mb-2 h-6 w-6" />
-                  <span>Bulk Import</span>
-                </Button>
+                <Link href="/admin/milestones">
+                  <Button variant="outline" className="h-20 w-full flex-col" data-testid="action-milestone-management">
+                    <Target className="mb-2 h-6 w-6" />
+                    <span>Milestone Management</span>
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>

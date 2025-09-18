@@ -39,6 +39,12 @@ const adminNavItems = [
     href: "/admin/seasonal",
     icon: Calendar,
     description: "Holiday campaigns"
+  },
+  {
+    title: "Milestone Management",
+    href: "/admin/milestones",
+    icon: Gift,
+    description: "Cart reward milestones"
   }
 ];
 

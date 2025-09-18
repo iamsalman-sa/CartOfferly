@@ -17,7 +17,7 @@ import {
   type DiscountAnalytics, type InsertDiscountAnalytics
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or, sql, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // User methods (keep existing)
@@ -36,10 +36,26 @@ export interface IStorage {
   getEligibleFreeProducts(storeId: string): Promise<Product[]>;
   updateProductEligibility(productId: string, isEligible: boolean): Promise<void>;
 
-  // Milestone methods
+  // Milestone methods - Enhanced with full CRUD and conditions
   createMilestone(milestone: InsertMilestone): Promise<Milestone>;
-  getMilestonesByStore(storeId: string): Promise<Milestone[]>;
-  getActiveMilestonesByThreshold(storeId: string, cartValue: number): Promise<Milestone[]>;
+  getMilestonesByStore(storeId: string, includeDeleted?: boolean): Promise<Milestone[]>;
+  getMilestoneById(milestoneId: string): Promise<Milestone | undefined>;
+  updateMilestone(milestoneId: string, updates: Partial<InsertMilestone>, modifiedBy?: string): Promise<Milestone | undefined>;
+  deleteMilestone(milestoneId: string): Promise<void>; // Soft delete
+  pauseMilestone(milestoneId: string, modifiedBy?: string): Promise<void>;
+  resumeMilestone(milestoneId: string, modifiedBy?: string): Promise<void>;
+  getActiveMilestonesByThreshold(storeId: string, cartValue: number, customerSegment?: string): Promise<Milestone[]>;
+  getMilestoneStats(milestoneId: string): Promise<{
+    totalUsage: number;
+    uniqueCustomers: number;
+    totalDiscount: number;
+    averageOrderValue: number;
+  }>;
+  duplicateMilestone(milestoneId: string, newName: string, createdBy?: string): Promise<Milestone>;
+  getMilestonesByStatus(storeId: string, status: 'active' | 'paused' | 'deleted'): Promise<Milestone[]>;
+  updateMilestoneUsage(milestoneId: string): Promise<void>;
+  getMilestoneHistory(milestoneId: string): Promise<any[]>; // Change log
+  validateMilestoneConditions(milestoneId: string, cartData: any): Promise<boolean>;
 
   // Cart session methods
   createCartSession(cartSession: InsertCartSession): Promise<CartSession>;
@@ -166,26 +182,214 @@ export class DatabaseStorage implements IStorage {
     await db.update(products).set({ isEligibleForRewards: isEligible }).where(eq(products.id, productId));
   }
 
-  // Milestone methods
+  // Enhanced Milestone methods with full CRUD and management features
   async createMilestone(milestone: InsertMilestone): Promise<Milestone> {
-    const [newMilestone] = await db.insert(milestones).values(milestone).returning();
+    const [newMilestone] = await db.insert(milestones).values({
+      ...milestone,
+      updatedAt: new Date()
+    }).returning();
     return newMilestone;
   }
 
-  async getMilestonesByStore(storeId: string): Promise<Milestone[]> {
+  async getMilestonesByStore(storeId: string, includeDeleted?: boolean): Promise<Milestone[]> {
+    let whereCondition = eq(milestones.storeId, storeId);
+    
+    if (!includeDeleted) {
+      whereCondition = and(whereCondition, eq(milestones.status, 'active')) as any;
+    }
+    
     return await db.select().from(milestones)
-      .where(and(eq(milestones.storeId, storeId), eq(milestones.isActive, true)))
-      .orderBy(milestones.thresholdAmount);
+      .where(whereCondition)
+      .orderBy(milestones.displayOrder, milestones.thresholdAmount);
   }
 
-  async getActiveMilestonesByThreshold(storeId: string, cartValue: number): Promise<Milestone[]> {
+  async getMilestoneById(milestoneId: string): Promise<Milestone | undefined> {
+    const [milestone] = await db.select().from(milestones)
+      .where(eq(milestones.id, milestoneId));
+    return milestone || undefined;
+  }
+
+  async updateMilestone(milestoneId: string, updates: Partial<InsertMilestone>, modifiedBy?: string): Promise<Milestone | undefined> {
+    const [updatedMilestone] = await db.update(milestones)
+      .set({ 
+        ...updates, 
+        updatedAt: new Date(),
+        lastModifiedBy: modifiedBy
+      })
+      .where(eq(milestones.id, milestoneId))
+      .returning();
+    return updatedMilestone || undefined;
+  }
+
+  async deleteMilestone(milestoneId: string): Promise<void> {
+    await db.update(milestones)
+      .set({ 
+        status: 'deleted', 
+        isActive: false, 
+        updatedAt: new Date() 
+      })
+      .where(eq(milestones.id, milestoneId));
+  }
+
+  async pauseMilestone(milestoneId: string, modifiedBy?: string): Promise<void> {
+    await db.update(milestones)
+      .set({ 
+        status: 'paused', 
+        isActive: false, 
+        updatedAt: new Date(),
+        lastModifiedBy: modifiedBy
+      })
+      .where(eq(milestones.id, milestoneId));
+  }
+
+  async resumeMilestone(milestoneId: string, modifiedBy?: string): Promise<void> {
+    await db.update(milestones)
+      .set({ 
+        status: 'active', 
+        isActive: true, 
+        updatedAt: new Date(),
+        lastModifiedBy: modifiedBy
+      })
+      .where(eq(milestones.id, milestoneId));
+  }
+
+  async getActiveMilestonesByThreshold(storeId: string, cartValue: number, customerSegment: string = 'all'): Promise<Milestone[]> {
+    const currentDate = new Date();
+    
     return await db.select().from(milestones)
       .where(and(
         eq(milestones.storeId, storeId),
+        eq(milestones.status, 'active'),
         eq(milestones.isActive, true),
-        lte(milestones.thresholdAmount, cartValue.toString())
+        lte(milestones.thresholdAmount, cartValue.toString()),
+        // Check date ranges
+        or(
+          isNull(milestones.startDate),
+          lte(milestones.startDate, currentDate)
+        ),
+        or(
+          isNull(milestones.endDate),
+          gte(milestones.endDate, currentDate)
+        )
       ))
-      .orderBy(milestones.thresholdAmount);
+      .orderBy(milestones.priority, milestones.thresholdAmount);
+  }
+
+  async getMilestoneStats(milestoneId: string): Promise<{
+    totalUsage: number;
+    uniqueCustomers: number;
+    totalDiscount: number;
+    averageOrderValue: number;
+  }> {
+    // Implementation for milestone statistics
+    const [milestone] = await db.select().from(milestones)
+      .where(eq(milestones.id, milestoneId));
+    
+    if (!milestone) {
+      throw new Error('Milestone not found');
+    }
+
+    // Get reward history for this milestone
+    const rewards = await db.select().from(rewardHistory)
+      .where(eq(rewardHistory.milestoneId, milestoneId));
+
+    const uniqueCustomers = new Set(rewards.map(r => r.cartSessionId)).size;
+    const totalDiscount = rewards.reduce((sum, r) => sum + parseFloat(r.rewardValue || '0'), 0);
+
+    return {
+      totalUsage: milestone.usageCount || 0,
+      uniqueCustomers,
+      totalDiscount,
+      averageOrderValue: uniqueCustomers > 0 ? totalDiscount / uniqueCustomers : 0
+    };
+  }
+
+  async duplicateMilestone(milestoneId: string, newName: string, createdBy?: string): Promise<Milestone> {
+    const [originalMilestone] = await db.select().from(milestones)
+      .where(eq(milestones.id, milestoneId));
+    
+    if (!originalMilestone) {
+      throw new Error('Original milestone not found');
+    }
+
+    const { id, createdAt, updatedAt, usageCount, ...milestoneData } = originalMilestone;
+
+    const [duplicatedMilestone] = await db.insert(milestones).values({
+      ...milestoneData,
+      name: newName,
+      status: 'paused', // Start as paused
+      usageCount: 0,
+      createdBy,
+      lastModifiedBy: createdBy,
+      updatedAt: new Date()
+    }).returning();
+
+    return duplicatedMilestone;
+  }
+
+  async getMilestonesByStatus(storeId: string, status: 'active' | 'paused' | 'deleted'): Promise<Milestone[]> {
+    return await db.select().from(milestones)
+      .where(and(
+        eq(milestones.storeId, storeId),
+        eq(milestones.status, status)
+      ))
+      .orderBy(milestones.displayOrder, milestones.thresholdAmount);
+  }
+
+  async updateMilestoneUsage(milestoneId: string): Promise<void> {
+    await db.update(milestones)
+      .set({ 
+        usageCount: sql`${milestones.usageCount} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(milestones.id, milestoneId));
+  }
+
+  async getMilestoneHistory(milestoneId: string): Promise<any[]> {
+    // For now, return basic milestone data
+    // This could be enhanced with a separate audit log table
+    const milestone = await this.getMilestoneById(milestoneId);
+    return milestone ? [milestone] : [];
+  }
+
+  async validateMilestoneConditions(milestoneId: string, cartData: any): Promise<boolean> {
+    const milestone = await this.getMilestoneById(milestoneId);
+    if (!milestone) return false;
+
+    // Check if milestone is active
+    if (milestone.status !== 'active' || !milestone.isActive) {
+      return false;
+    }
+
+    // Check date ranges
+    const now = new Date();
+    if (milestone.startDate && now < milestone.startDate) {
+      return false;
+    }
+    if (milestone.endDate && now > milestone.endDate) {
+      return false;
+    }
+
+    // Check usage limits
+    if (milestone.usageLimit && (milestone.usageCount || 0) >= milestone.usageLimit) {
+      return false;
+    }
+
+    // Check threshold
+    if (parseFloat(cartData.total) < parseFloat(milestone.thresholdAmount)) {
+      return false;
+    }
+
+    // Check customer segment
+    const customerSegment = cartData.customerSegment || 'all';
+    if (!milestone.customerSegments?.includes('all') && 
+        !milestone.customerSegments?.includes(customerSegment)) {
+      return false;
+    }
+
+    // Additional conditions can be added here based on the conditions JSON field
+    
+    return true;
   }
 
   // Cart session methods
@@ -451,11 +655,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(discountAnalytics.campaignId, campaignId));
     
     if (startDate && endDate) {
-      query = query.where(and(
-        eq(discountAnalytics.campaignId, campaignId),
-        gte(discountAnalytics.date, startDate),
-        lte(discountAnalytics.date, endDate)
-      ));
+      return await db.select().from(discountAnalytics)
+        .where(and(
+          eq(discountAnalytics.campaignId, campaignId),
+          gte(discountAnalytics.date, startDate),
+          lte(discountAnalytics.date, endDate)
+        ))
+        .orderBy(desc(discountAnalytics.date));
     }
     
     return await query.orderBy(desc(discountAnalytics.date));

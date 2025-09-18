@@ -72,24 +72,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Milestone management routes
-  app.post("/api/milestones", async (req, res) => {
+  // Enhanced Milestone Management Routes
+  app.post("/api/stores/:storeId/milestones", async (req, res) => {
     try {
-      const milestoneData = insertMilestoneSchema.parse(req.body);
+      const { storeId } = req.params;
+      console.log("Milestone creation request:", {
+        storeId,
+        body: req.body,
+        bodyKeys: Object.keys(req.body)
+      });
+      
+      const milestoneData = insertMilestoneSchema.parse({ ...req.body, storeId });
+      console.log("Parsed milestone data:", milestoneData);
+      
       const milestone = await storage.createMilestone(milestoneData);
       res.json(milestone);
     } catch (error) {
-      res.status(400).json({ message: "Invalid milestone data", error });
+      console.error("Milestone creation error:", error);
+      if (error instanceof Error) {
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+      }
+      res.status(400).json({ message: "Invalid milestone data", error: error instanceof Error ? error.message : error });
     }
   });
 
   app.get("/api/stores/:storeId/milestones", async (req, res) => {
     try {
       const { storeId } = req.params;
-      const milestones = await storage.getMilestonesByStore(storeId);
+      const { includeDeleted, status } = req.query;
+      
+      let milestones;
+      if (status) {
+        milestones = await storage.getMilestonesByStatus(storeId, status as 'active' | 'paused' | 'deleted');
+      } else {
+        milestones = await storage.getMilestonesByStore(storeId, includeDeleted === 'true');
+      }
+      
       res.json(milestones);
     } catch (error) {
       res.status(500).json({ message: "Error fetching milestones", error });
+    }
+  });
+
+  app.get("/api/milestones/:milestoneId", async (req, res) => {
+    try {
+      const { milestoneId } = req.params;
+      const milestone = await storage.getMilestoneById(milestoneId);
+      if (!milestone) {
+        return res.status(404).json({ message: "Milestone not found" });
+      }
+      res.json(milestone);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching milestone", error });
+    }
+  });
+
+  app.put("/api/milestones/:milestoneId", async (req, res) => {
+    try {
+      const { milestoneId } = req.params;
+      const updates = insertMilestoneSchema.partial().parse(req.body);
+      const milestone = await storage.updateMilestone(milestoneId, updates, req.body.modifiedBy);
+      
+      if (!milestone) {
+        return res.status(404).json({ message: "Milestone not found" });
+      }
+      
+      res.json(milestone);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid milestone update data", error });
+    }
+  });
+
+  app.delete("/api/milestones/:milestoneId", async (req, res) => {
+    try {
+      const { milestoneId } = req.params;
+      await storage.deleteMilestone(milestoneId);
+      res.json({ message: "Milestone deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error deleting milestone", error });
+    }
+  });
+
+  app.post("/api/milestones/:milestoneId/pause", async (req, res) => {
+    try {
+      const { milestoneId } = req.params;
+      const { modifiedBy } = req.body;
+      await storage.pauseMilestone(milestoneId, modifiedBy);
+      res.json({ message: "Milestone paused successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error pausing milestone", error });
+    }
+  });
+
+  app.post("/api/milestones/:milestoneId/resume", async (req, res) => {
+    try {
+      const { milestoneId } = req.params;
+      const { modifiedBy } = req.body;
+      await storage.resumeMilestone(milestoneId, modifiedBy);
+      res.json({ message: "Milestone resumed successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error resuming milestone", error });
+    }
+  });
+
+  app.post("/api/milestones/:milestoneId/duplicate", async (req, res) => {
+    try {
+      const { milestoneId } = req.params;
+      const { newName, createdBy } = req.body;
+      const duplicatedMilestone = await storage.duplicateMilestone(milestoneId, newName, createdBy);
+      res.json(duplicatedMilestone);
+    } catch (error) {
+      res.status(500).json({ message: "Error duplicating milestone", error });
+    }
+  });
+
+  app.get("/api/milestones/:milestoneId/stats", async (req, res) => {
+    try {
+      const { milestoneId } = req.params;
+      const stats = await storage.getMilestoneStats(milestoneId);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching milestone stats", error });
+    }
+  });
+
+  app.get("/api/milestones/:milestoneId/history", async (req, res) => {
+    try {
+      const { milestoneId } = req.params;
+      const history = await storage.getMilestoneHistory(milestoneId);
+      res.json(history);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching milestone history", error });
+    }
+  });
+
+  app.post("/api/milestones/:milestoneId/validate", async (req, res) => {
+    try {
+      const { milestoneId } = req.params;
+      const cartData = req.body;
+      const isValid = await storage.validateMilestoneConditions(milestoneId, cartData);
+      res.json({ valid: isValid });
+    } catch (error) {
+      res.status(500).json({ message: "Error validating milestone conditions", error });
     }
   });
 

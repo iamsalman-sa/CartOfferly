@@ -11,6 +11,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import CampaignManagement from "@/pages/campaign-management";
 import AnalyticsDashboard from "@/pages/analytics-dashboard";
 import SeasonalPromotions from "@/pages/seasonal-promotions";
+import MilestoneManagement from "@/pages/milestone-management";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/admin/campaigns" component={CampaignManagement} />
       <Route path="/admin/analytics" component={AnalyticsDashboard} />
       <Route path="/admin/seasonal" component={SeasonalPromotions} />
+      <Route path="/admin/milestones" component={MilestoneManagement} />
       
       {/* 404 fallback */}
       <Route component={NotFound} />

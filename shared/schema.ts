@@ -34,11 +34,45 @@ export const products = pgTable("products", {
 export const milestones = pgTable("milestones", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   storeId: varchar("store_id").references(() => stores.id),
+  name: text("name").default("Milestone"), // "2500 PKR Free Delivery", "VIP Milestone"
+  description: text("description"), // Optional description
   thresholdAmount: decimal("threshold_amount", { precision: 10, scale: 2 }).notNull(),
-  rewardType: text("reward_type").notNull(), // 'free_delivery', 'free_products'
+  currency: text("currency").default("PKR"), // Currency support
+  rewardType: text("reward_type").notNull(), // 'free_delivery', 'free_products', 'discount'
   freeProductCount: integer("free_product_count").default(0),
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).default("0"), // For discount rewards
+  discountType: text("discount_type").default("percentage"), // 'percentage', 'fixed'
+  
+  // Status and Control
+  status: text("status").default("active"), // 'active', 'paused', 'deleted'
   isActive: boolean("is_active").default(true),
+  
+  // Advanced Conditions
+  conditions: jsonb("conditions").default("{}"), // Flexible conditions (customer type, product categories, etc.)
+  eligibleProducts: text("eligible_products").array(), // Array of product IDs eligible for free selection
+  excludeProducts: text("exclude_products").array(), // Products to exclude
+  customerSegments: text("customer_segments").array().default(["all"]), // "all", "new", "returning", "vip"
+  
+  // Scheduling
+  startDate: timestamp("start_date"), // When milestone becomes active
+  endDate: timestamp("end_date"), // When milestone expires
+  
+  // Usage Limits
+  usageLimit: integer("usage_limit"), // Max number of times this milestone can be used
+  usageCount: integer("usage_count").default(0), // How many times it's been used
+  maxUsagePerCustomer: integer("max_usage_per_customer").default(1), // Limit per customer
+  
+  // Priority and Display
+  priority: integer("priority").default(1), // Order of milestone evaluation
+  displayOrder: integer("display_order").default(1), // Order in UI
+  icon: text("icon").default("🎁"), // Icon for display
+  color: text("color").default("#e91e63"), // Color theme
+  
+  // Metadata
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: text("created_by"), // Admin user who created it
+  lastModifiedBy: text("last_modified_by"), // Last admin who modified it
 });
 
 export const cartSessions = pgTable("cart_sessions", {
