@@ -424,6 +424,7 @@ function SeasonalPromotionForm({
 export default function SeasonalPromotions() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<any>(null);
+  const [previewingPromotion, setPreviewingPromotion] = useState<any>(null);
   const { toast } = useToast();
 
   // Fetch real seasonal promotions data
@@ -674,6 +675,7 @@ export default function SeasonalPromotions() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => setPreviewingPromotion(promotion)}
                         data-testid={`button-preview-${promotion.id}`}
                       >
                         <Eye className="h-4 w-4" />
@@ -721,6 +723,93 @@ export default function SeasonalPromotions() {
                   onCancel={() => setEditingPromotion(null)}
                   isLoading={createPromotionMutation.isPending}
                 />
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Preview Dialog */}
+          <Dialog 
+            open={!!previewingPromotion} 
+            onOpenChange={(open) => !open && setPreviewingPromotion(null)}
+          >
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Promotion Preview</DialogTitle>
+                <DialogDescription>
+                  See how this promotion will appear to your customers
+                </DialogDescription>
+              </DialogHeader>
+              {previewingPromotion && (
+                <div className="space-y-6">
+                  <div className="flex items-center space-x-3">
+                    <ThemeIcon theme={previewingPromotion.theme} />
+                    <h3 className="text-xl font-semibold">{previewingPromotion.name}</h3>
+                    <StatusBadge isActive={previewingPromotion.isActive} />
+                  </div>
+                  
+                  <div 
+                    className="rounded-lg p-6 text-center text-lg font-medium"
+                    style={{ 
+                      backgroundColor: previewingPromotion.bannerColor,
+                      color: previewingPromotion.textColor
+                    }}
+                  >
+                    {previewingPromotion.bannerText}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-4 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Theme:</span>
+                      <span className="capitalize">{previewingPromotion.theme.replace('_', ' ')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Banner Color:</span>
+                      <div className="flex items-center space-x-2">
+                        <div 
+                          className="w-4 h-4 rounded border"
+                          style={{ backgroundColor: previewingPromotion.bannerColor }}
+                        />
+                        <span>{previewingPromotion.bannerColor}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Text Color:</span>
+                      <div className="flex items-center space-x-2">
+                        <div 
+                          className="w-4 h-4 rounded border"
+                          style={{ backgroundColor: previewingPromotion.textColor }}
+                        />
+                        <span>{previewingPromotion.textColor}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Auto-activate:</span>
+                      <span>{previewingPromotion.autoActivate ? "Yes" : "No"}</span>
+                    </div>
+                    {previewingPromotion.activationDate && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Activation Date:</span>
+                        <span>{previewingPromotion.activationDate}</span>
+                      </div>
+                    )}
+                    {previewingPromotion.deactivationDate && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Deactivation Date:</span>
+                        <span>{previewingPromotion.deactivationDate}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-end">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setPreviewingPromotion(null)}
+                      data-testid="button-close-preview"
+                    >
+                      Close Preview
+                    </Button>
+                  </div>
+                </div>
               )}
             </DialogContent>
           </Dialog>
