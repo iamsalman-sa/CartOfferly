@@ -114,6 +114,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function AnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState("30d");
   const [campaignFilter, setCampaignFilter] = useState("all");
+  const [showFilter, setShowFilter] = useState(false);
   const { toast } = useToast();
 
   // Fetch analytics data
@@ -441,11 +442,51 @@ export default function AnalyticsDashboard() {
                       Detailed performance metrics for all campaigns
                     </CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" data-testid="button-filter-campaigns">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowFilter(!showFilter)}
+                    data-testid="button-filter-campaigns"
+                  >
                     <Filter className="mr-2 h-4 w-4" />
                     Filter
                   </Button>
                 </CardHeader>
+                
+                {/* Filter Panel */}
+                {showFilter && (
+                  <div className="border-t border-border bg-muted/20 px-6 py-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <label className="text-sm font-medium text-foreground">Status:</label>
+                        <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+                          <SelectTrigger className="w-[150px]" data-testid="select-campaign-filter">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Campaigns</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="paused">Paused</SelectItem>
+                            <SelectItem value="expired">Expired</SelectItem>
+                            <SelectItem value="draft">Draft</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setCampaignFilter("all")}
+                        data-testid="button-clear-filters"
+                      >
+                        Clear Filters
+                      </Button>
+                      <div className="text-xs text-muted-foreground">
+                        Showing {campaignPerformance.length} campaign{campaignPerformance.length !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <CardContent>
                   <div className="space-y-4">
                     {campaignPerformance.map((campaign) => (
