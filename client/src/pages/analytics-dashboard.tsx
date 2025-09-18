@@ -118,6 +118,124 @@ export default function AnalyticsDashboard() {
   const [showFilter, setShowFilter] = useState(false);
   const { toast } = useToast();
 
+  // CSV utility functions
+  const escapeCsvCell = (value: any): string => {
+    if (value === null || value === undefined) return '""';
+    const stringValue = String(value);
+    // Escape double quotes by doubling them, then wrap in quotes
+    const escaped = stringValue.replace(/"/g, '""');
+    return `"${escaped}"`;
+  };
+
+  const formatCsvRow = (cells: any[]): string => {
+    return cells.map(escapeCsvCell).join(',');
+  };
+
+  // Export analytics data
+  const exportAnalytics = () => {
+    try {
+      const exportData = {
+        summary: {
+          totalRevenue: analyticsData?.totalRevenueImpact || 0,
+          conversionRate: analyticsData?.conversionRate || 0,
+          averageOrderValue: analyticsData?.averageOrderValue || 0,
+          totalRewardsUnlocked: analyticsData?.totalRewardsUnlocked || 0,
+          milestonesHit: analyticsData?.milestonesHit || 0,
+          generatedAt: new Date().toISOString(),
+          timeRange
+        },
+        campaigns: campaignsData || [],
+        milestones: milestonesData || [],
+        monthlyTrends
+      };
+
+      // Convert to CSV format with proper escaping
+      const csvRows = [
+        // Summary section
+        formatCsvRow(["ANALYTICS SUMMARY", ""]),
+        formatCsvRow(["Generated on", new Date().toLocaleDateString()]),
+        formatCsvRow(["Time Range", timeRange]),
+        formatCsvRow(["", ""]),
+        formatCsvRow(["OVERVIEW METRICS", ""]),
+        formatCsvRow(["Metric", "Value"]),
+        formatCsvRow(["Total Revenue Impact", formatCurrency(exportData.summary.totalRevenue)]),
+        formatCsvRow(["Conversion Rate", `${exportData.summary.conversionRate.toFixed(1)}%`]),
+        formatCsvRow(["Average Order Value", formatCurrency(exportData.summary.averageOrderValue)]),
+        formatCsvRow(["Total Rewards Unlocked", exportData.summary.totalRewardsUnlocked]),
+        formatCsvRow(["Milestones Hit", exportData.summary.milestonesHit]),
+        formatCsvRow(["", ""]),
+        // Campaigns section
+        formatCsvRow(["CAMPAIGNS", "", "", "", "", ""]),
+        formatCsvRow(["Name", "Status", "Type", "Priority", "Start Date", "End Date"]),
+        ...exportData.campaigns.map((campaign: any) => 
+          formatCsvRow([
+            campaign.name || "",
+            campaign.status || "",
+            campaign.type || "",
+            campaign.priority || "",
+            campaign.startDate || "",
+            campaign.endDate || ""
+          ])
+        ),
+        formatCsvRow(["", "", "", "", "", ""]),
+        // Milestones section
+        formatCsvRow(["MILESTONES", "", "", "", "", "", ""]),
+        formatCsvRow(["Name", "Status", "Threshold", "Currency", "Reward Type", "Usage Count", "Usage Limit"]),
+        ...exportData.milestones.map((milestone) => 
+          formatCsvRow([
+            milestone.name || "",
+            milestone.status || "",
+            milestone.thresholdAmount || "",
+            milestone.currency || "",
+            milestone.rewardType || "",
+            milestone.usageCount || 0,
+            milestone.usageLimit || ""
+          ])
+        ),
+        formatCsvRow(["", "", "", "", "", "", ""]),
+        // Monthly trends section
+        formatCsvRow(["MONTHLY TRENDS", "", "", ""]),
+        formatCsvRow(["Month", "Revenue", "Orders", "Campaigns"]),
+        ...exportData.monthlyTrends.map((trend: any) => 
+          formatCsvRow([
+            trend.month || "",
+            trend.revenue || 0,
+            trend.orders || 0,
+            trend.campaigns || 0
+          ])
+        )
+      ];
+
+      // Create CSV content with BOM for Excel compatibility
+      const csvContent = '\uFEFF' + csvRows.join('\n');
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `analytics-export-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL to free resources
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export successful",
+        description: "Analytics data has been exported to CSV",
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "There was an error exporting the analytics data",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Fetch analytics data
   const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
     queryKey: ['/api/stores', STORE_ID, 'analytics', timeRange],
@@ -279,7 +397,12 @@ export default function AnalyticsDashboard() {
                 <RefreshCw className={cn("mr-2 h-4 w-4", refreshMutation.isPending && "animate-spin")} />
                 Refresh
               </Button>
-              <Button variant="outline" size="sm" data-testid="button-export-analytics">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={exportAnalytics}
+                data-testid="button-export-analytics"
+              >
                 <Download className="mr-2 h-4 w-4" />
                 Export
               </Button>
