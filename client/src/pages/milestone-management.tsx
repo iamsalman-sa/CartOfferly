@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
@@ -15,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Play, Pause, Copy, Trash2, Edit, BarChart3, Settings, Users, Calendar, Gift, Truck, Target, AlertTriangle } from "lucide-react";
+import { Plus, Play, Pause, Copy, Trash2, Edit, BarChart3, Settings, Users, Calendar, Gift, Truck, Target, AlertTriangle, Search, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Milestone } from "@shared/schema";
@@ -33,6 +34,9 @@ const milestoneFormSchema = z.object({
   discountValue: z.string().default("0"),
   discountType: z.enum(["percentage", "fixed"]).default("percentage"),
   customerSegments: z.array(z.string()).default(["all"]),
+  eligibleProducts: z.array(z.string()).default([]),
+  excludeProducts: z.array(z.string()).default([]),
+  enableProductSelection: z.boolean().default(false),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   usageLimit: z.number().optional(),
@@ -51,6 +55,9 @@ export default function MilestoneManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
   const [showStats, setShowStats] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [duplicateDialog, setDuplicateDialog] = useState<{ open: boolean; milestone: Milestone | null }>({ open: false, milestone: null });
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; milestone: Milestone | null }>({ open: false, milestone: null });
   
   const { toast } = useToast();
 
@@ -90,6 +97,9 @@ export default function MilestoneManagement() {
       maxUsagePerCustomer: 1,
       icon: "🎁",
       color: "#e91e63",
+      eligibleProducts: [],
+      excludeProducts: [],
+      enableProductSelection: false,
     },
   });
 
@@ -296,10 +306,25 @@ export default function MilestoneManagement() {
   };
 
   const handleDuplicate = (milestone: Milestone) => {
-    const newName = prompt("Enter name for duplicated milestone:", `${milestone.name} (Copy)`);
-    if (newName) {
-      duplicateMilestoneMutation.mutate({ milestoneId: milestone.id, newName });
+    setDuplicateDialog({ open: true, milestone });
+  };
+
+  const handleConfirmDuplicate = (newName?: string) => {
+    if (duplicateDialog.milestone && newName) {
+      duplicateMilestoneMutation.mutate({ milestoneId: duplicateDialog.milestone.id, newName });
     }
+    setDuplicateDialog({ open: false, milestone: null });
+  };
+
+  const handleDelete = (milestone: Milestone) => {
+    setDeleteDialog({ open: true, milestone });
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteDialog.milestone) {
+      deleteMilestoneMutation.mutate(deleteDialog.milestone.id);
+    }
+    setDeleteDialog({ open: false, milestone: null });
   };
 
   const getStatusBadge = (status: string) => {
@@ -328,6 +353,18 @@ export default function MilestoneManagement() {
     }
   };
 
+  // Filter milestones based on search query
+  const filteredMilestones = milestones.filter((milestone) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      milestone.name?.toLowerCase().includes(query) ||
+      milestone.description?.toLowerCase().includes(query) ||
+      milestone.rewardType.toLowerCase().includes(query) ||
+      milestone.thresholdAmount.includes(query)
+    );
+  });
+
   const onSubmit = (data: MilestoneFormData) => {
     if (selectedMilestone) {
       updateMilestoneMutation.mutate({ id: selectedMilestone.id, data });
@@ -343,10 +380,22 @@ export default function MilestoneManagement() {
           <h1 className="text-3xl font-bold text-foreground">Milestone Management</h1>
           <p className="text-muted-foreground">Manage milestone rewards, conditions, and rules</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-milestone">
-          <Plus className="w-4 h-4 mr-2" />
-          Create Milestone
-        </Button>
+        <div className="flex items-center space-x-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search milestones..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 w-64"
+              data-testid="input-search-milestones"
+            />
+          </div>
+          <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-milestone">
+            <Plus className="w-4 h-4 mr-2" />
+            Create Milestone
+          </Button>
+        </div>
       </div>
 
       {/* Status Filter Tabs */}
@@ -363,7 +412,19 @@ export default function MilestoneManagement() {
       <div className="grid gap-4">
         {isLoading ? (
           <div className="text-center py-8">Loading milestones...</div>
-        ) : milestones.length === 0 ? (
+        ) : filteredMilestones.length === 0 ? (
+          searchQuery ? (
+            <Card>
+              <CardContent className="text-center py-8">
+                <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                <h3 className="text-lg font-semibold mb-2">No milestones found</h3>
+                <p className="text-muted-foreground mb-4">No milestones match your search criteria.</p>
+                <Button variant="outline" onClick={() => setSearchQuery("")}>
+                  Clear search
+                </Button>
+              </CardContent>
+            </Card>
+          ) : milestones.length === 0 ? (
           <Card>
             <CardContent className="text-center py-8">
               <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
@@ -375,8 +436,21 @@ export default function MilestoneManagement() {
               </Button>
             </CardContent>
           </Card>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-8">
+                <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">No milestones found</h3>
+                <p className="text-muted-foreground mb-4">Create your first milestone to get started with reward campaigns.</p>
+                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create First Milestone
+                </Button>
+              </CardContent>
+            </Card>
+          )
         ) : (
-          milestones.map((milestone) => (
+          filteredMilestones.map((milestone) => (
             <Card key={milestone.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex justify-between items-start">
@@ -442,7 +516,7 @@ export default function MilestoneManagement() {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => deleteMilestoneMutation.mutate(milestone.id)}
+                      onClick={() => handleDelete(milestone)}
                       data-testid={`button-delete-${milestone.id}`}
                     >
                       <Trash2 className="w-4 h-4 text-destructive" />
@@ -664,26 +738,110 @@ export default function MilestoneManagement() {
                   />
 
                   {form.watch("rewardType") === "free_products" && (
-                    <FormField
-                      control={form.control}
-                      name="freeProductCount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Number of Free Products</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              type="number" 
-                              min="0"
-                              value={field.value || 0}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                              data-testid="input-free-product-count"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                    <div className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="freeProductCount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Number of Free Products</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                type="number" 
+                                min="0"
+                                value={field.value || 0}
+                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                data-testid="input-free-product-count"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="enableProductSelection"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">
+                                Enable Product Selection
+                              </FormLabel>
+                              <FormDescription>
+                                Allow admins to specify which products can be included or excluded as free products.
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="switch-enable-product-selection"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      {form.watch("enableProductSelection") && (
+                        <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium flex items-center">
+                              <Package className="w-4 h-4 mr-2" />
+                              Product Selection Rules
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Configure which products customers can select as free products
+                            </p>
+                          </div>
+                          
+                          <FormField
+                            control={form.control}
+                            name="eligibleProducts"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Include Specific Products (Optional)</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Enter product IDs separated by commas"
+                                    value={field.value.join(", ")}
+                                    onChange={(e) => field.onChange(e.target.value.split(",").map(id => id.trim()).filter(Boolean))}
+                                    data-testid="input-eligible-products"
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Leave empty to include all eligible products, or specify product IDs to limit selection
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="excludeProducts"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Exclude Specific Products (Optional)</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    placeholder="Enter product IDs separated by commas"
+                                    value={field.value.join(", ")}
+                                    onChange={(e) => field.onChange(e.target.value.split(",").map(id => id.trim()).filter(Boolean))}
+                                    data-testid="input-exclude-products"
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Specify product IDs that should be excluded from free product selection
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                       )}
-                    />
+                    </div>
                   )}
 
                   {form.watch("rewardType") === "discount" && (
@@ -892,6 +1050,32 @@ export default function MilestoneManagement() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Duplicate Milestone Confirmation Dialog */}
+      <ConfirmationDialog
+        open={duplicateDialog.open}
+        onOpenChange={(open) => setDuplicateDialog({ open, milestone: duplicateDialog.milestone })}
+        title="Enter name for duplicated milestone:"
+        type="input"
+        inputValue={duplicateDialog.milestone ? `${duplicateDialog.milestone.name} (Copy)` : ""}
+        onConfirm={handleConfirmDuplicate}
+        onCancel={() => setDuplicateDialog({ open: false, milestone: null })}
+        confirmText="OK"
+        cancelText="Cancel"
+      />
+
+      {/* Delete Milestone Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, milestone: deleteDialog.milestone })}
+        title="Delete Milestone"
+        message={`Are you sure you want to delete "${deleteDialog.milestone?.name}"? This action cannot be undone.`}
+        type="destructive"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteDialog({ open: false, milestone: null })}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

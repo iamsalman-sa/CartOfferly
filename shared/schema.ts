@@ -51,6 +51,7 @@ export const milestones = pgTable("milestones", {
   conditions: jsonb("conditions").default("{}"), // Flexible conditions (customer type, product categories, etc.)
   eligibleProducts: text("eligible_products").array(), // Array of product IDs eligible for free selection
   excludeProducts: text("exclude_products").array(), // Products to exclude
+  enableProductSelection: boolean("enable_product_selection").default(false), // Enable/disable product selection
   customerSegments: text("customer_segments").array().default(["all"]), // "all", "new", "returning", "vip"
   
   // Scheduling
