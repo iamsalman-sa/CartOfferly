@@ -1,988 +1,925 @@
-# Shopify Deployment Guide - TECHNICALLY ACCURATE VERSION
-## Beauty Industry E-Commerce Admin Dashboard
+# Beauty E-commerce Admin Dashboard - Deployment Guide
 
-### 📋 Overview
-This guide provides technically accurate, tested procedures for deploying the beauty industry e-commerce admin dashboard with milestone rewards to Shopify as an embedded app.
+## 📋 Overview
+
+This guide covers the deployment and configuration of the Beauty E-commerce Admin Dashboard - a standalone web application for managing milestone rewards, discount campaigns, seasonal promotions, and analytics for beauty e-commerce stores.
+
+### 🏗️ System Architecture
+
+- **Frontend**: React 18 with TypeScript, Vite build system, shadcn/ui components
+- **Backend**: Node.js Express server with TypeScript
+- **Database**: Neon PostgreSQL with Drizzle ORM and @neondatabase/serverless driver
+- **State Management**: TanStack Query for server state
+- **Routing**: Wouter for client-side routing
+- **Styling**: TailwindCSS with custom theme variables
+
+### 🎯 Current Features
+
+- **Milestone Management**: Progressive cart rewards with free delivery and product selection
+- **Campaign Management**: Discount campaigns with multiple types (percentage, fixed, BOGO, bundles)
+- **Seasonal Promotions**: Time-based promotional campaigns
+- **Analytics Dashboard**: Revenue impact tracking, conversion metrics, customer insights
+- **Product Management**: Product catalog with reward eligibility settings
+- **Cart Session Tracking**: Real-time cart value and milestone tracking
+
+### 🔮 Future Implementation: Shopify Integration
+
+Currently, this is a standalone admin dashboard. Shopify integration is planned for future implementation and would include:
+- Store synchronization
+- Product import/export
+- Order webhook processing
+- Real-time cart tracking via Shopify APIs
+
+The database schema includes fields to support future Shopify integration (`shopifyStoreId`, `accessToken`), but no actual Shopify API integration is currently implemented.
 
 ---
 
-## 🏗️ Architecture Overview
+## 1. Prerequisites & Requirements
 
-### System Components
-- **Admin App**: Embedded React dashboard (external hosting required)
-- **Storefront Integration**: Theme App Extensions + App Proxy for milestone UI  
-- **Rewards Logic**: Shopify Functions (shipping discounts) + Cart Transforms (free gifts)
-- **Backend**: Express.js server (Render/Fly.io/Heroku hosting)
-- **Database**: PostgreSQL for admin data and session storage
+### 🔧 Required Software
 
-**Critical**: Shopify does not host Node.js servers. External hosting is mandatory.
+- **Node.js**: Version 18.0 or higher
+- **npm**: Version 9.0 or higher (included with Node.js)
+- **Neon Database**: WebSocket-compatible PostgreSQL service (required for @neondatabase/serverless driver)
+- **Git**: For version control
 
----
+### 🌐 Hosting Requirements
 
-## 🛠️ Prerequisites
+Choose one of the following hosting options:
 
-### Required Tools & Accounts
-- [ ] Shopify Partner Account
-- [ ] Shopify Development Store  
-- [ ] External hosting (Render/Fly.io/Heroku)
-- [ ] Node.js 18+
-- [ ] Shopify CLI: `npm install -g @shopify/cli`
+#### Option A: Replit (Recommended for Development)
+- Replit account with ability to host full-stack applications
+- Neon database connection (must be added via Replit Secrets)
+- Automatic deployment and scaling
 
----
+#### Option B: Cloud Providers (Recommended for Production)
+- **Frontend + Backend**: Render, Railway, Fly.io, or Heroku (full-stack)
+- **Database**: Neon (required for @neondatabase/serverless driver) or other Neon-compatible services
 
-## 🚀 Step 1: Create Shopify App
+### 💻 Development Tools
 
-### Initialize App
 ```bash
-shopify app init beauty-admin-dashboard --template=node
+# Verify installations
+node --version    # Should be 18.0+
+npm --version     # Should be 9.0+
+git --version     # For version control
+```
+
+---
+
+## 2. Environment Setup
+
+### 🔐 Environment Variables
+
+Create `.env` file in your project root:
+
+```bash
+# Database Configuration (Required - Must be Neon database)
+DATABASE_URL="postgresql://neon_user:password@ep-example.us-west-2.aws.neon.tech/beauty_admin_db?sslmode=require"
+
+# Application Configuration
+NODE_ENV="development"  # or "production"
+PORT="5000"
+
+# Optional: Development Configuration (for Replit)
+# REPL_ID - Automatically set by Replit environment
+```
+
+### 🔑 Secrets Management
+
+#### For Development (Local/Replit):
+```bash
+# Never commit .env to version control
+echo ".env" >> .gitignore
+
+# For Replit: Use Secrets tab in the sidebar
+# Add DATABASE_URL as a secret
+```
+
+#### For Production:
+```bash
+# Use your hosting platform's environment variable system
+# Examples (DATABASE_URL must be from Neon):
+
+# Render
+render config:set DATABASE_URL="postgresql://neon_user:password@ep-example.us-west-2.aws.neon.tech/beauty_admin_db?sslmode=require"
+
+# Railway
+railway variables set DATABASE_URL="postgresql://neon_user:password@ep-example.us-west-2.aws.neon.tech/beauty_admin_db?sslmode=require"
+```
+
+### 📊 Database Configuration
+
+**IMPORTANT**: This application uses `@neondatabase/serverless` driver which ONLY works with Neon WebSocket-compatible endpoints. Standard PostgreSQL databases will NOT work.
+
+```typescript
+// server/db.ts configuration
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import ws from "ws";
+
+neonConfig.webSocketConstructor = ws;
+
+// DATABASE_URL must be a Neon connection string
+export const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL 
+});
+export const db = drizzle({ client: pool, schema });
+```
+
+---
+
+## 3. Database Setup
+
+### 📋 Schema Deployment
+
+#### Step 1: Create Neon Database
+```bash
+# Create a new database at https://neon.tech
+# 1. Sign up for Neon account
+# 2. Create a new project
+# 3. Copy the connection string from Neon dashboard
+# 4. Set DATABASE_URL environment variable
+
+export DATABASE_URL="postgresql://neon_user:password@ep-example.us-west-2.aws.neon.tech/beauty_admin_db?sslmode=require"
+```
+
+#### Step 2: Push Schema to Database
+```bash
+# Install dependencies
+npm install
+
+# Push schema using Drizzle
+npm run db:push
+
+# Verify schema deployment
+npm run db:push --verbose
+```
+
+#### Step 3: Verify Database Tables
+
+The following tables will be created based on `shared/schema.ts`:
+
+```sql
+-- Core tables
+users                    -- Admin user management
+stores                   -- Store connections (prepared for future Shopify integration)
+products                 -- Product catalog with reward eligibility
+
+-- Milestone system
+milestones              -- Reward thresholds and configurations
+cart_sessions           -- Active cart tracking
+reward_history          -- Milestone reward usage history
+
+-- Campaign management
+discount_campaigns      -- Marketing campaigns
+discount_rules          -- Campaign rules and conditions
+campaign_products       -- Product-campaign associations
+
+-- Bundle and seasonal features
+bundle_configurations   -- Product bundle setups
+bundle_items           -- Items within bundles
+seasonal_promotions    -- Time-based promotions
+
+-- Analytics
+discount_analytics     -- Campaign performance metrics
+```
+
+### 🏪 Initial Store Setup
+
+#### Step 1: Create Store Record (via API)
+```bash
+# Create a demo store for testing
+curl -X POST http://localhost:5000/api/stores \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shopifyStoreId": "demo-store.myshopify.com",
+    "storeName": "Demo Beauty Store",
+    "accessToken": "demo_token",
+    "isActive": true
+  }'
+```
+
+#### Step 2: Add Sample Products
+```bash
+# Replace {STORE_ID} with the actual storeId returned from Step 1
+# Example: if Step 1 returned {"id": "store_123abc", ...}, use "store_123abc"
+curl -X POST http://localhost:5000/api/products \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shopifyProductId": "demo_prod_001",
+    "storeId": "{STORE_ID}",
+    "title": "Premium Face Serum",
+    "handle": "premium-face-serum",
+    "price": "2500.00",
+    "imageUrl": "https://example.com/serum.jpg",
+    "isEligibleForRewards": true
+  }'
+```
+
+#### Step 3: Configure Default Milestones
+```bash
+# Replace {STORE_ID} with the actual internal storeId returned from Step 1
+# This uses the internal UUID storeId, NOT the shopifyStoreId
+curl -X POST http://localhost:5000/api/stores/{STORE_ID}/milestones \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Free Delivery Milestone",
+    "description": "Get free delivery on orders over 2500 PKR",
+    "thresholdAmount": "2500.00",
+    "currency": "PKR",
+    "rewardType": "free_delivery",
+    "status": "active",
+    "customerSegments": ["all"]
+  }'
+```
+
+---
+
+## 4. Application Deployment
+
+### 🛠️ Local Development Setup
+
+#### Step 1: Clone and Install
+```bash
+# Clone repository
+git clone <your-repository-url>
 cd beauty-admin-dashboard
+
+# Install dependencies
+npm install
+
+# Create .env file with your Neon DATABASE_URL
+echo 'DATABASE_URL="postgresql://neon_user:password@ep-example.us-west-2.aws.neon.tech/beauty_admin_db?sslmode=require"' > .env
+echo 'NODE_ENV="development"' >> .env
+echo 'PORT="5000"' >> .env
 ```
 
-### App Configuration (shopify.app.toml) - CORRECTED
-```toml
-name = "Beauty Admin Dashboard"
-client_id = "YOUR_CLIENT_ID"
-application_url = "https://your-hosting-domain.com"
-embedded = true
-
-[access_scopes]
-scopes = "write_products,read_products,write_orders,read_orders,write_customers,read_customers,write_discounts,read_discounts,write_cart_transforms,read_cart_transforms"
-
-[auth]
-redirect_urls = [
-  "https://your-hosting-domain.com/auth/callback"
-]
-
-# CORRECTED: Use singular 'topic' not 'topics'
-[[webhooks.subscriptions]]
-topic = "orders/create"
-uri = "https://your-hosting-domain.com/webhooks/orders/create"
-
-[[webhooks.subscriptions]]
-topic = "orders/updated"  
-uri = "https://your-hosting-domain.com/webhooks/orders/updated"
-
-[[webhooks.subscriptions]]
-topic = "app/uninstalled"
-uri = "https://your-hosting-domain.com/webhooks/app/uninstalled"
-
-[webhooks]
-api_version = "2024-10"
-```
-
----
-
-## 🔧 Step 2: Backend Implementation (CORRECTED)
-
-### Install Dependencies
+#### Step 2: Database Setup
 ```bash
-# Core Shopify dependencies (DO NOT install crypto - it's built-in)
-npm install @shopify/shopify-app-express @shopify/shopify-app-session-storage-postgresql
-npm install @shopify/admin-api-client
-# Note: crypto is built-in to Node.js, do not install separately
+# Push database schema
+npm run db:push
 ```
 
-### Server Setup (server/index.ts) - FULLY CORRECTED
+#### Step 3: Start Development Server
+```bash
+# Start the development server
+npm run dev
+
+# The application will be available at:
+# http://localhost:5000
+```
+
+#### Step 4: Verify Local Setup
+- **Frontend**: Navigate to `http://localhost:5000`
+- **Admin Dashboard**: Access `http://localhost:5000/admin`
+- **API Test**: Check `http://localhost:5000/api/stores/demo-store.myshopify.com`
+
+### ☁️ Production Deployment Options
+
+#### Option A: Replit Deployment
+
+1. **Import Project to Replit**
+   ```bash
+   # Push your code to GitHub first
+   git add .
+   git commit -m "Initial commit"
+   git push origin main
+   
+   # Import to Replit from GitHub repository
+   ```
+
+2. **Configure Replit Environment**
+   - Go to Secrets tab in Replit
+   - Add `DATABASE_URL` with your Neon connection string
+   - Ensure `NODE_ENV=production` for production builds
+   - Note: Replit does NOT have built-in PostgreSQL - you must use Neon or another external service
+
+3. **Deploy Database Schema**
+   ```bash
+   # In Replit shell
+   npm run db:push
+   ```
+
+4. **Start Application**
+   ```bash
+   # Application auto-starts with workflow: "npm run dev"
+   # Available at your Replit URL: https://your-repl.username.repl.co
+   ```
+
+#### Option B: Render Deployment
+
+1. **Full-Stack Deployment (Render Web Service)**
+   ```yaml
+   # render.yaml
+   services:
+     - type: web
+       name: beauty-admin-dashboard
+       env: node
+       buildCommand: npm install && npm run build
+       startCommand: npm start
+       envVars:
+         - key: NODE_ENV
+           value: production
+         - key: DATABASE_URL
+           fromDatabase:
+             name: beauty-admin-db
+             property: connectionString
+   
+   # Note: Use external Neon database instead of Render PostgreSQL
+   # The @neondatabase/serverless driver requires Neon WebSocket endpoints
+   ```
+
+2. **Deploy Steps**
+   - Connect your GitHub repository to Render
+   - Configure environment variables in Render dashboard
+   - Deploy automatically triggers on git push
+
+#### Option C: Railway Deployment
+
+1. **Connect Repository**
+   ```bash
+   # Connect Railway to your GitHub repo
+   # Railway will auto-deploy on git push
+   ```
+
+2. **Configure Environment**
+   - Add `DATABASE_URL` in Railway dashboard
+   - Set `NODE_ENV=production`
+   - Configure automatic deployments
+
+### 🔧 Environment-Specific Configuration
+
+#### Development Configuration (Illustrative Only)
 ```typescript
-import express from 'express';
-import path from 'path'; // ADDED: Import path module
-import { shopifyApp } from '@shopify/shopify-app-express';
-import { PostgreSQLSessionStorage } from '@shopify/shopify-app-session-storage-postgresql';
-import { restResources } from '@shopify/shopify-api/rest/admin/2024-10';
-import crypto from 'crypto'; // Built-in Node.js crypto module
-
-const app = express();
-
-// Initialize PostgreSQL session storage
-const sessionStorage = new PostgreSQLSessionStorage(process.env.DATABASE_URL!);
-
-// Shopify App Configuration
-const shopify = shopifyApp({
-  api: {
-    apiKey: process.env.SHOPIFY_API_KEY!,
-    apiSecretKey: process.env.SHOPIFY_API_SECRET_KEY!,
-    scopes: process.env.SHOPIFY_SCOPES!.split(','),
-    hostName: process.env.SHOPIFY_APP_URL!.replace(/https?:\/\//, ''),
-    apiVersion: '2024-10',
-    restResources,
+// config/development.ts - EXAMPLE ONLY (these files don't exist in this codebase)
+export const devConfig = {
+  database: {
+    ssl: false,
+    logging: true
   },
-  auth: {
-    path: '/auth',
-    callbackPath: '/auth/callback',
-  },
-  webhooks: {
-    path: '/webhooks',
-  },
-  sessionStorage,
-  useOnlineTokens: true,
-  exitIframeOnInstall: false,
-});
-
-// CORRECT: CSP headers for embedding (no X-Frame-Options)
-app.use((req, res, next) => {
-  res.setHeader('Content-Security-Policy', 
-    "frame-ancestors https://admin.shopify.com https://*.myshopify.com;"
-  );
-  next();
-});
-
-// CORRECTED: Webhook verification using raw body
-app.use('/webhooks', express.raw({ type: 'application/json' }));
-
-const verifyWebhook = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const hmac = req.get('X-Shopify-Hmac-Sha256');
-  const rawBody = req.body; // This is now a Buffer from express.raw
-  
-  const hash = crypto.createHmac('sha256', process.env.SHOPIFY_API_SECRET_KEY!)
-    .update(rawBody)
-    .digest('base64');
-
-  if (hash !== hmac) {
-    return res.status(401).send('Unauthorized');
+  frontend: {
+    apiUrl: 'http://localhost:5000',
+    hotReload: true
   }
-  
-  // Parse JSON for route handlers
-  req.body = JSON.parse(rawBody.toString());
-  next();
 };
-
-// ALTERNATIVE: Use Shopify's built-in webhook processing (RECOMMENDED)
-// app.use(shopify.config.webhooks.path, shopify.processWebhooks());
-
-// Apply Shopify middleware
-app.use(shopify.config.auth.path, shopify.auth.begin());
-app.use(shopify.config.auth.callbackPath, 
-  shopify.auth.callback(),
-  (req, res) => {
-    const shop = req.query.shop;
-    const host = req.query.host;
-    res.redirect(`/?shop=${shop}&host=${host}`);
-  }
-);
-
-// Webhook endpoints with proper verification
-app.post('/webhooks/orders/create', verifyWebhook, async (req, res) => {
-  try {
-    const order = req.body;
-    await handleOrderMilestone(order);
-    res.status(200).send('OK');
-  } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(500).send('Error');
-  }
-});
-
-app.post('/webhooks/app/uninstalled', verifyWebhook, async (req, res) => {
-  try {
-    const shop = req.get('X-Shopify-Shop-Domain');
-    await cleanupShopData(shop);
-    res.status(200).send('OK');
-  } catch (error) {
-    console.error('Uninstall error:', error);
-    res.status(500).send('Error');
-  }
-});
-
-// Use JSON middleware for API routes only
-app.use(express.json({ limit: '1mb' }));
-
-// DEFINED: API routes stub
-const apiRoutes = express.Router();
-apiRoutes.get('/analytics', (req, res) => {
-  // Your analytics endpoint
-  res.json({ message: 'Analytics data' });
-});
-apiRoutes.get('/campaigns', (req, res) => {
-  // Your campaigns endpoint
-  res.json({ message: 'Campaigns data' });
-});
-
-// Protected admin API routes
-app.use('/api', shopify.validateAuthenticatedSession(), apiRoutes);
-
-// Serve built React app
-app.use(express.static('dist'));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
-
-// Start server
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
-
-// Utility functions (implement as needed)
-async function handleOrderMilestone(order: any) {
-  // Implementation for milestone processing
-}
-
-async function cleanupShopData(shop: string) {
-  // Implementation for data cleanup
-}
 ```
 
----
-
-## 🎯 Step 3: Frontend App Bridge (CORRECTED)
-
-### Frontend Entry (client/src/main.tsx)
+#### Production Configuration (Illustrative Only)
 ```typescript
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { AppProvider } from '@shopify/polaris';
-import { Provider } from '@shopify/app-bridge-react';
-import '@shopify/polaris/build/esm/styles.css';
-import App from './App';
-
-// Get URL parameters for embedded app
-const urlParams = new URLSearchParams(window.location.search);
-const host = urlParams.get('host'); // Base64 encoded host parameter
-
-// CORRECTED: App Bridge configuration using host parameter
-const appBridgeConfig = {
-  apiKey: import.meta.env.VITE_SHOPIFY_API_KEY,
-  host: host!, // Use host parameter from URL
-  forceRedirect: true,
+// config/production.ts - EXAMPLE ONLY (these files don't exist in this codebase)
+export const prodConfig = {
+  database: {
+    ssl: true,
+    logging: false,
+    pool: {
+      min: 2,
+      max: 10
+    }
+  },
+  frontend: {
+    apiUrl: 'https://your-domain.com',
+    hotReload: false
+  }
 };
-
-function AppWrapper() {
-  return (
-    <Provider config={appBridgeConfig}>
-      <AppProvider i18n={{}}>
-        <App />
-      </AppProvider>
-    </Provider>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById('root')!).render(<AppWrapper />);
 ```
 
 ---
 
-## 🛒 Step 4: Shopify Functions Implementation (BUILDABLE VERSION)
+## 5. Feature Configuration
 
-### Create Delivery Customization Function
-```bash
-# Generate delivery customization for free shipping
-shopify app generate extension --template=function --name=milestone-shipping
-cd extensions/milestone-shipping
-```
+### 🎯 Milestone Management Setup
 
-### Function Implementation (extensions/milestone-shipping/src/run.js)
-```javascript
-// @ts-check
+#### Creating Milestone Rewards
 
-/**
- * @typedef {import("../generated/api").RunInput} RunInput
- * @typedef {import("../generated/api").FunctionRunResult} FunctionRunResult
- */
+Access the admin dashboard at `/admin/milestones` to configure milestone rewards:
 
-/**
- * @type {FunctionRunResult}
- */
-const NO_CHANGES = {
-  operations: [],
-};
+1. **Free Delivery Milestone**
+   ```json
+   {
+     "name": "Free Delivery",
+     "description": "Get free shipping on orders over 2500 PKR",
+     "thresholdAmount": "2500.00",
+     "currency": "PKR",
+     "rewardType": "free_delivery",
+     "status": "active",
+     "priority": 1,
+     "customerSegments": ["all"],
+     "startDate": "2024-01-01T00:00:00Z",
+     "endDate": null
+   }
+   ```
 
-/**
- * @param {RunInput} input
- * @returns {FunctionRunResult}
- */
-export function run(input) {
-  // Get cart subtotal (before shipping and taxes)
-  const cartTotal = parseFloat(input.cart.cost.subtotalAmount.amount);
-  
-  // Your milestone threshold for free shipping (adjust currency conversion as needed)
-  const freeShippingThreshold = 2500; // PKR converted to store currency
-  
-  if (cartTotal < freeShippingThreshold) {
-    return NO_CHANGES;
-  }
-  
-  // Apply 100% discount to shipping
-  return {
-    operations: [{
-      hide: {
-        deliveryOptionHandle: input.cart.deliveryGroups[0]?.deliveryOptions?.find(
-          option => option.handle
-        )?.handle
-      }
-    }, {
-      rename: {
-        deliveryOptionHandle: "free-shipping",
-        title: "Free Shipping (Milestone Reward)"
-      }
-    }]
-  };
-}
-```
+2. **Free Product Milestone**
+   ```json
+   {
+     "name": "Free Beauty Sample",
+     "description": "Choose 1 free beauty sample on orders over 3000 PKR",
+     "thresholdAmount": "3000.00",
+     "currency": "PKR",
+     "rewardType": "free_products",
+     "freeProductCount": 1,
+     "enableProductSelection": true,
+     "eligibleProducts": ["prod_123", "prod_124", "prod_125"],
+     "status": "active",
+     "priority": 2
+   }
+   ```
 
-### Function Configuration (extensions/milestone-shipping/shopify.extension.toml)
-```toml
-type = "function"
-name = "milestone-shipping"
-handle = "milestone-shipping-function"
+3. **Percentage Discount Milestone**
+   ```json
+   {
+     "name": "VIP Discount",
+     "description": "Get 15% off on orders over 5000 PKR",
+     "thresholdAmount": "5000.00",
+     "currency": "PKR",
+     "rewardType": "discount",
+     "discountValue": "15.00",
+     "discountType": "percentage",
+     "customerSegments": ["vip", "returning"],
+     "status": "active",
+     "priority": 3
+   }
+   ```
 
-[build]
-command = ""
-path = "src"
-
-[ui.enable_create]
-schema = "./input.graphql"
-
-[settings]
-[[settings.fields]]
-key = "threshold"
-type = "number"
-name = "Free Shipping Threshold"
-description = "Minimum cart value for free shipping"
-
-[[settings.fields]]
-key = "currency_conversion"
-type = "number"
-name = "Currency Conversion Rate"
-description = "Convert PKR to store currency"
-```
-
-### Input Query (extensions/milestone-shipping/input.graphql)
-```graphql
-query RunInput($cartId: ID!) {
-  cart(id: $cartId) {
-    cost {
-      subtotalAmount {
-        amount
-        currencyCode
-      }
-      totalAmount {
-        amount
-        currencyCode
-      }
-    }
-    deliveryGroups {
-      deliveryOptions {
-        handle
-        title
-        cost {
-          amount
-          currencyCode
-        }
-      }
-    }
-  }
-}
-```
-
-### Build and Deploy Function
-```bash
-# Build the function
-npm run shopify app build
-
-# Deploy the function
-shopify app deploy
-
-# Test the function
-shopify app generate sample-data --type=delivery-customization
-```
-
-### Create Cart Transform Function for Free Products
-```bash
-# Generate cart transform for free gifts
-shopify app generate extension --template=function --name=milestone-gifts
-cd extensions/milestone-gifts
-```
-
-### Gift Function (extensions/milestone-gifts/src/run.js)
-```javascript
-// @ts-check
-
-/**
- * @param {RunInput} input
- * @returns {FunctionRunResult}
- */
-export function run(input) {
-  const cartTotal = parseFloat(input.cart.cost.subtotalAmount.amount);
-  
-  // Milestone thresholds
-  const milestones = {
-    3000: 1, // 1 free product
-    4000: 2, // 2 free products  
-    5000: 3, // 3 free products
-  };
-  
-  // Find applicable milestone
-  let freeProductCount = 0;
-  for (const [threshold, count] of Object.entries(milestones)) {
-    if (cartTotal >= parseInt(threshold)) {
-      freeProductCount = count;
-    }
-  }
-  
-  if (freeProductCount === 0) {
-    return { operations: [] };
-  }
-  
-  // Check cart attributes for selected free products
-  const selectedFreeProducts = input.cart.attribute?.find(
-    attr => attr.key === "_milestone_free_products"
-  )?.value;
-  
-  if (!selectedFreeProducts) {
-    return { operations: [] };
-  }
-  
-  const productIds = JSON.parse(selectedFreeProducts).slice(0, freeProductCount);
-  
-  // Add free products to cart
-  const operations = productIds.map(productId => ({
-    add: {
-      cartLine: {
-        merchandiseId: `gid://shopify/ProductVariant/${productId}`,
-        quantity: 1,
-        attributes: [{
-          key: "_milestone_free_gift",
-          value: "true"
-        }]
-      }
-    }
-  }));
-  
-  return { operations };
-}
-```
-
----
-
-## 🎨 Step 5: Theme App Extension (CORRECTED)
-
-### Create Theme Extension
-```bash
-shopify app generate extension --template=theme --name=milestone-ui
-```
-
-### Milestone Block (extensions/milestone-ui/blocks/milestone-progress.liquid)
-```liquid
-<div class="milestone-progress-wrapper" id="milestone-progress-{{ block.id }}">
-  <div class="milestone-progress">
-    <div class="milestone-header">
-      <h3>{{ block.settings.title | default: "Milestone Rewards" }}</h3>
-      <div class="current-total">{{ cart.total_price | money }}</div>
-    </div>
-    
-    <div class="progress-container">
-      {% assign progress_percentage = cart.total_price | divided_by: 5000.0 | times: 100 %}
-      {% if progress_percentage > 100 %}{% assign progress_percentage = 100 %}{% endif %}
-      
-      <div class="progress-bar">
-        <div class="progress-fill" style="width: {{ progress_percentage }}%"></div>
-      </div>
-      
-      <div class="milestones-grid">
-        {% assign milestones = "2500,3000,4000,5000" | split: "," %}
-        {% assign rewards = "Free Delivery,1 Free Product,2 Free Products,3 Free Products" | split: "," %}
-        
-        {% for milestone in milestones %}
-          {% assign milestone_value = milestone | plus: 0 %}
-          {% assign reward_index = forloop.index0 %}
-          {% assign is_unlocked = cart.total_price >= milestone_value %}
-          
-          <div class="milestone-item {% if is_unlocked %}unlocked{% endif %}">
-            <div class="milestone-icon">
-              {% if is_unlocked %}
-                ✓
-              {% else %}
-                🎁
-              {% endif %}
-            </div>
-            <div class="milestone-amount">{{ milestone_value | money }}</div>
-            <div class="milestone-reward">{{ rewards[reward_index] }}</div>
-          </div>
-        {% endfor %}
-      </div>
-    </div>
-    
-    {% if cart.total_price >= 3000 %}
-      <div class="free-product-selector">
-        <p>Select your free products:</p>
-        <div id="free-product-selection-{{ block.id }}"></div>
-      </div>
-    {% endif %}
-  </div>
-</div>
-
-<script>
-(function() {
-  const cartTotal = {{ cart.total_price | json }};
-  const blockId = "{{ block.id }}";
-  
-  // Update milestone progress
-  function updateMilestoneProgress() {
-    const progressBar = document.querySelector(`#milestone-progress-${blockId} .progress-fill`);
-    if (progressBar) {
-      const percentage = Math.min((cartTotal / 50000) * 100, 100); // Assuming 500.00 currency units = 5000 PKR
-      progressBar.style.width = percentage + '%';
-    }
-  }
-  
-  // Load free product selection if eligible
-  if (cartTotal >= 3000) { // Adjust currency conversion
-    loadFreeProductSelection(blockId);
-  }
-  
-  function loadFreeProductSelection(blockId) {
-    // This would make an AJAX call to your App Proxy endpoint
-    fetch('/apps/beauty-admin/milestone-products?total=' + cartTotal)
-      .then(response => response.json())
-      .then(data => {
-        const container = document.getElementById(`free-product-selection-${blockId}`);
-        if (container && data.products) {
-          renderFreeProductOptions(container, data.products, data.maxSelection);
-        }
-      })
-      .catch(error => console.error('Error loading free products:', error));
-  }
-  
-  function renderFreeProductOptions(container, products, maxSelection) {
-    let html = '<div class="free-products-grid">';
-    products.forEach(product => {
-      html += `
-        <div class="free-product-option">
-          <input type="checkbox" id="free-product-${product.id}" value="${product.id}" 
-                 data-max-selection="${maxSelection}" onchange="handleFreeProductSelection(this)">
-          <label for="free-product-${product.id}">
-            <img src="${product.image}" alt="${product.title}">
-            <span>${product.title}</span>
-          </label>
-        </div>
-      `;
-    });
-    html += '</div>';
-    container.innerHTML = html;
-  }
-  
-  window.handleFreeProductSelection = function(checkbox) {
-    const maxSelection = parseInt(checkbox.dataset.maxSelection);
-    const selected = document.querySelectorAll('input[data-max-selection]:checked');
-    
-    if (selected.length > maxSelection) {
-      checkbox.checked = false;
-      alert(`You can only select ${maxSelection} free product${maxSelection > 1 ? 's' : ''}.`);
-      return;
-    }
-    
-    // Save selection to cart attributes
-    const selectedIds = Array.from(selected).map(cb => cb.value);
-    updateCartAttribute('_milestone_free_products', JSON.stringify(selectedIds));
-  };
-  
-  function updateCartAttribute(key, value) {
-    fetch('/cart/update.js', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        attributes: {
-          [key]: value
-        }
-      })
-    })
-    .then(response => response.json())
-    .then(cart => {
-      console.log('Cart updated with free product selection');
-    })
-    .catch(error => console.error('Error updating cart:', error));
-  }
-  
-  updateMilestoneProgress();
-})();
-</script>
-
-<style>
-.milestone-progress {
-  background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%);
-  border-radius: 12px;
-  padding: 1.5rem;
-  color: white;
-  margin: 1rem 0;
-}
-
-.milestone-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.current-total {
-  font-size: 1.25rem;
-  font-weight: bold;
-}
-
-.progress-bar {
-  background: rgba(255, 255, 255, 0.2);
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-  margin: 1rem 0;
-  position: relative;
-}
-
-.progress-fill {
-  background: white;
-  height: 100%;
-  transition: width 0.5s ease;
-  border-radius: 4px;
-}
-
-.milestones-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1rem;
-}
-
-.milestone-item {
-  text-align: center;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  transition: all 0.3s ease;
-}
-
-.milestone-item.unlocked {
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.5);
-}
-
-.milestone-icon {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.milestone-amount {
-  font-weight: bold;
-  margin-bottom: 0.25rem;
-}
-
-.milestone-reward {
-  font-size: 0.875rem;
-  opacity: 0.9;
-}
-
-.free-product-selector {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.free-products-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.free-product-option {
-  position: relative;
-}
-
-.free-product-option input[type="checkbox"] {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  z-index: 2;
-}
-
-.free-product-option label {
-  display: block;
-  background: white;
-  color: #333;
-  border-radius: 8px;
-  padding: 1rem;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.free-product-option label:hover {
-  transform: translateY(-2px);
-}
-
-.free-product-option img {
-  width: 100%;
-  height: 100px;
-  object-fit: cover;
-  border-radius: 4px;
-  margin-bottom: 0.5rem;
-}
-
-@media (max-width: 768px) {
-  .milestones-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .free-products-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-</style>
-
-{% schema %}
+#### Advanced Milestone Conditions
+```json
 {
-  "name": "Milestone Progress",
-  "target": "section",
-  "settings": [
-    {
-      "type": "text",
-      "id": "title",
-      "label": "Title",
-      "default": "Milestone Rewards"
-    },
-    {
-      "type": "number",
-      "id": "currency_conversion",
-      "label": "PKR to Store Currency Conversion",
-      "default": 100,
-      "info": "e.g., if 100 PKR = 1 USD, enter 100"
+  "conditions": {
+    "minimumItems": 3,
+    "excludeCategories": ["sale", "clearance"],
+    "requireCategories": ["skincare", "makeup"],
+    "customerPurchaseHistory": {
+      "minimumOrders": 2,
+      "timeframe": "6_months"
     }
-  ]
+  },
+  "usageLimit": 1000,
+  "maxUsagePerCustomer": 1,
+  "timeRestrictions": {
+    "daysOfWeek": [1, 2, 3, 4, 5],
+    "hoursOfDay": {"start": 9, "end": 18}
+  }
 }
-{% endschema %}
 ```
 
-### App Proxy for Free Products (server/routes/app-proxy.ts)
+### 📈 Campaign Management Configuration
+
+#### Discount Campaign Types
+
+1. **Percentage Discount Campaign**
+   ```bash
+   # Replace {STORE_ID} with the actual internal storeId from your store creation
+   curl -X POST http://localhost:5000/api/stores/{STORE_ID}/campaigns \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "Summer Beauty Sale",
+       "description": "15% off all skincare products",
+       "type": "percentage",
+       "discountValue": 15.00,
+       "minimumOrderValue": "1000.00",
+       "applicableProducts": ["category:skincare"],
+       "startDate": "2024-06-01T00:00:00Z",
+       "endDate": "2024-08-31T23:59:59Z",
+       "status": "active"
+     }'
+   ```
+
+2. **BOGO Campaign**
+   ```json
+   {
+     "name": "Buy One Get One Free",
+     "type": "bogo",
+     "buyQuantity": 1,
+     "getQuantity": 1,
+     "applicableProducts": ["prod_lipstick_001", "prod_lipstick_002"],
+     "conditions": {
+       "sameProduct": false,
+       "sameCategory": true,
+       "categoryCode": "lipstick"
+     }
+   }
+   ```
+
+3. **Bundle Campaign**
+   ```json
+   {
+     "name": "Complete Skincare Bundle",
+     "type": "bundle",
+     "bundleProducts": [
+       {"productId": "prod_cleanser", "quantity": 1},
+       {"productId": "prod_serum", "quantity": 1},
+       {"productId": "prod_moisturizer", "quantity": 1}
+     ],
+     "bundlePrice": "4500.00",
+     "savingsAmount": "1000.00",
+     "savingsPercentage": 18.18
+   }
+   ```
+
+### 🎪 Seasonal Promotions Setup
+
+#### Creating Seasonal Campaigns
+
+1. **Holiday Promotion**
+   ```json
+   {
+     "name": "Eid Beauty Collection",
+     "description": "Special festive beauty offers",
+     "theme": "eid",
+     "startDate": "2024-04-01T00:00:00Z",
+     "endDate": "2024-04-15T23:59:59Z",
+     "promotionType": "seasonal",
+     "discountTiers": [
+       {"minAmount": "2000.00", "discount": "10.00", "type": "percentage"},
+       {"minAmount": "4000.00", "discount": "20.00", "type": "percentage"},
+       {"minAmount": "6000.00", "discount": "30.00", "type": "percentage"}
+     ],
+     "bannerConfig": {
+       "backgroundGradient": ["#e91e63", "#9c27b0"],
+       "textColor": "#ffffff",
+       "ctaColor": "#4caf50"
+     }
+   }
+   ```
+
+2. **Flash Sale Configuration**
+   ```json
+   {
+     "name": "24-Hour Flash Sale",
+     "description": "Limited time offers",
+     "duration": "24_hours",
+     "urgencyTimer": true,
+     "stockLimits": {
+       "enabled": true,
+       "showRemaining": true,
+       "lowStockThreshold": 5
+     },
+     "discountProgression": {
+       "hour_0_6": "40.00",
+       "hour_6_12": "30.00",
+       "hour_12_18": "20.00",
+       "hour_18_24": "10.00"
+     }
+   }
+   ```
+
+### 📊 Analytics Configuration
+
+#### Dashboard Metrics Setup
+
+Configure analytics tracking in `/admin/analytics`:
+
+1. **Revenue Tracking**
+   ```typescript
+   // Analytics configuration
+   const analyticsConfig = {
+     metrics: {
+       revenueImpact: {
+         enabled: true,
+         trackingPeriods: ['7d', '30d', '90d'],
+         comparisonPeriods: true
+       },
+       conversionRate: {
+         enabled: true,
+         segmentBy: ['source', 'device', 'customer_type']
+       },
+       averageOrderValue: {
+         enabled: true,
+         includeShipping: false,
+         excludeReturns: true
+       }
+     },
+     automation: {
+       dailyReports: true,
+       weeklyReports: true,
+       alertThresholds: {
+         conversionDrop: 0.05,
+         revenueIncrease: 0.20
+       }
+     }
+   };
+   ```
+
+2. **Custom Event Tracking**
+   ```typescript
+   // Track custom events
+   await storage.createAnalyticsEvent({
+     eventType: 'milestone_unlocked',
+     storeId: store.id,
+     customerId: customer.id,
+     eventData: {
+       milestoneId: milestone.id,
+       cartValue: cart.totalValue,
+       rewardType: milestone.rewardType
+     },
+     timestamp: new Date()
+   });
+   ```
+
+---
+
+## 6. Testing & Verification
+
+### 📝 **IMPORTANT: Understanding ID Types**
+
+Before testing, understand the two types of store identifiers used in this API:
+
+- **`shopifyStoreId`**: External identifier like `"test-store.myshopify.com"` (used in routes like `/api/stores/:shopifyStoreId`)
+- **`storeId`**: Internal UUID like `"550e8400-e29b-41d4-a716-446655440000"` (returned by POST /api/stores, used in routes like `/api/stores/:storeId/analytics`)
+
+### 🧪 Component Testing
+
+#### Step 1: Create Test Store and Capture ID
+```bash
+# Test database connectivity first
+npm run db:push --verbose
+
+# Create a test store and capture the returned storeId
+curl -X POST http://localhost:5000/api/stores \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shopifyStoreId": "test-store.myshopify.com",
+    "storeName": "Test Verification Store",
+    "accessToken": "test_token_123",
+    "isActive": true
+  }'
+
+# SAVE THE RETURNED storeId (internal UUID) from the response above!
+# Example response: {"id": "550e8400-e29b-41d4-a716-446655440000", "shopifyStoreId": "test-store.myshopify.com", ...}
+# You will need the "id" field for subsequent API calls
+```
+
+#### Step 2: Verify Store Operations
+```bash
+# Test store retrieval using shopifyStoreId (external ID)
+curl -X GET http://localhost:5000/api/stores/test-store.myshopify.com
+
+# Test analytics endpoint using the internal storeId from Step 1
+# REPLACE {STORE_ID} with the actual UUID returned in Step 1
+curl -X GET http://localhost:5000/api/stores/{STORE_ID}/analytics
+```
+
+#### Step 3: Test Milestone Management
+```bash
+# Test milestone creation using internal storeId
+# REPLACE {STORE_ID} with the actual UUID from Step 1
+curl -X POST http://localhost:5000/api/stores/{STORE_ID}/milestones \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test Milestone",
+    "description": "Test free delivery milestone",
+    "thresholdAmount": "1000.00",
+    "currency": "PKR",
+    "rewardType": "free_delivery",
+    "status": "active",
+    "customerSegments": ["all"]
+  }'
+
+# Test milestone retrieval
+curl -X GET http://localhost:5000/api/stores/{STORE_ID}/milestones
+```
+
+#### Step 4: Test Cart Session Tracking
+```bash
+# Test cart session creation using internal storeId
+# REPLACE {STORE_ID} with the actual UUID from Step 1
+curl -X POST http://localhost:5000/api/cart-sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "storeId": "{STORE_ID}",
+    "cartToken": "test_cart_123",
+    "customerId": "test_customer",
+    "currentValue": 1500.00
+  }'
+
+# Test cart value update
+curl -X PUT http://localhost:5000/api/cart-sessions/test_cart_123/value \
+  -H "Content-Type: application/json" \
+  -d '{"currentValue": 2500.00}'
+```
+
+#### Step 3: Frontend Component Testing
+
+**Admin Dashboard Access:**
+```bash
+# Verify admin dashboard loads
+curl -I http://localhost:5000/admin
+
+# Check specific admin pages
+curl -I http://localhost:5000/admin/milestones
+curl -I http://localhost:5000/admin/campaigns
+curl -I http://localhost:5000/admin/analytics
+```
+
+### 🔍 Load Testing
+
+#### Basic Load Testing
+```bash
+# Install apache bench for basic load testing
+# Ubuntu/Debian: sudo apt-get install apache2-utils
+# macOS: brew install httpie
+
+# Test API performance using shopifyStoreId (external ID)
+ab -n 100 -c 10 http://localhost:5000/api/stores/test-store.myshopify.com
+
+# Test milestone checking using internal storeId
+# Replace {STORE_ID} with actual UUID from your store creation
+ab -n 50 -c 5 http://localhost:5000/api/stores/{STORE_ID}/milestones
+```
+
+---
+
+## 7. Monitoring & Maintenance
+
+### 📊 Application Monitoring
+
+#### Application Monitoring
 ```typescript
-// App Proxy route for free product data
-app.get('/apps/beauty-admin/milestone-products', async (req, res) => {
+// EXAMPLE ONLY - Health check endpoint (not currently implemented)
+// This shows how you could add health monitoring to server/routes.ts
+app.get('/api/health', async (req, res) => {
   try {
-    const cartTotal = parseFloat(req.query.total as string) || 0;
-    
-    // Determine free product count based on milestone
-    let maxSelection = 0;
-    if (cartTotal >= 5000) maxSelection = 3;
-    else if (cartTotal >= 4000) maxSelection = 2;
-    else if (cartTotal >= 3000) maxSelection = 1;
-    
-    if (maxSelection === 0) {
-      return res.json({ products: [], maxSelection: 0 });
-    }
-    
-    // Fetch available free products (implement your logic)
-    const freeProducts = await getFreeProducts();
+    // Test database connection
+    await db.select().from(stores).limit(1);
     
     res.json({
-      products: freeProducts.map(product => ({
-        id: product.id,
-        title: product.title,
-        image: product.image,
-        available: product.inventory_quantity > 0
-      })),
-      maxSelection
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        database: 'connected',
+        api: 'running'
+      }
     });
-    
   } catch (error) {
-    console.error('App proxy error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({
+      status: 'unhealthy',
+      error: error.message
+    });
   }
 });
-
-async function getFreeProducts() {
-  // Implementation: fetch products eligible as free gifts
-  // This could query your database or Shopify API
-  return [
-    { id: '123', title: 'Sample Lipstick', image: '/sample-lipstick.jpg', inventory_quantity: 10 },
-    { id: '124', title: 'Travel Size Moisturizer', image: '/moisturizer.jpg', inventory_quantity: 5 },
-  ];
-}
 ```
 
----
-
-## 🌐 Step 6: Deploy to External Hosting (CORRECTED)
-
-### Render Deployment (render.yaml)
-```yaml
-services:
-  - type: web
-    name: beauty-admin-dashboard
-    runtime: node
-    plan: starter
-    buildCommand: npm ci && npm run build
-    startCommand: node server/index.js
-    healthCheckPath: /health
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: SHOPIFY_API_KEY
-        sync: false
-      - key: SHOPIFY_API_SECRET_KEY
-        sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: postgres-db
-          property: connectionString
-
-databases:
-  - name: postgres-db
-    databaseName: beauty_admin
-    user: admin
-    plan: starter
-```
-
-### Health Check Endpoint
-```typescript
-// Add to server/index.ts
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    version: process.env.npm_package_version || '1.0.0'
-  });
-});
-```
-
-### Deploy Steps
+#### Performance Monitoring
 ```bash
-# 1. Push to GitHub repository
-git add .
-git commit -m "Initial Shopify app setup"
-git push origin main
+# IMPORTANT: Replace {STORE_ID} with an actual internal storeId from your database
+# To get a valid storeId, first create a store or check existing stores
 
-# 2. Connect to Render
-# - Create new Web Service in Render dashboard
-# - Connect GitHub repository
-# - Configure environment variables
-# - Deploy automatically
-
-# 3. Update shopify.app.toml with deployed URL
-# application_url = "https://your-render-app.onrender.com"
-
-# 4. Deploy extensions
-shopify app deploy
-```
-
----
-
-## ⚙️ Step 7: Configure & Test
-
-### Install on Development Store
-```bash
-# Start development server
-shopify app dev --store=your-dev-store.myshopify.com
-
-# Test webhook delivery
-curl -X POST "https://your-render-app.onrender.com/webhooks/orders/create" \
+# Step 1: Create a monitoring store (if needed)
+curl -X POST http://localhost:5000/api/stores \
   -H "Content-Type: application/json" \
-  -H "X-Shopify-Shop-Domain: your-dev-store.myshopify.com" \
-  -H "X-Shopify-Hmac-Sha256: generated-hmac" \
-  -d '{"id": 12345, "total_price": "35.00"}'
+  -d '{
+    "shopifyStoreId": "monitor-store.myshopify.com",
+    "storeName": "Monitoring Store",
+    "accessToken": "monitor_token",
+    "isActive": true
+  }'
+# Save the "id" field from the response above!
+
+# Step 2: Use the returned storeId for monitoring
+# Replace {STORE_ID} with the actual UUID from Step 1
+curl http://localhost:5000/api/stores/{STORE_ID}/analytics
+curl http://localhost:5000/api/stores/{STORE_ID}/milestones
 ```
 
-### Testing Checklist
-- [ ] App loads in Shopify admin iframe
-- [ ] Theme extension appears on cart page
-- [ ] Milestone progress updates with cart value
-- [ ] Free shipping applies at 2500 threshold
-- [ ] Free product selection works at 3000+ thresholds
-- [ ] Webhooks receive and verify correctly
-- [ ] Database stores session data
-- [ ] GDPR webhooks respond properly
+### 🔧 Regular Maintenance Tasks
 
----
-
-## 🔒 Step 8: Production Security
-
-### Rate Limiting
-```typescript
-import rateLimit from 'express-rate-limit';
-
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Limit each IP to 1000 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use('/api', apiLimiter);
-```
-
-### Environment Security
-```typescript
-// Validate required environment variables
-const requiredEnvVars = [
-  'SHOPIFY_API_KEY',
-  'SHOPIFY_API_SECRET_KEY',
-  'DATABASE_URL',
-  'SHOPIFY_APP_URL'
-];
-
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    throw new Error(`Missing required environment variable: ${envVar}`);
-  }
-}
-```
-
----
-
-## 📋 Final Deployment Checklist
-
-### Critical Requirements ✅
-- [ ] **External hosting** deployed and accessible via HTTPS
-- [ ] **Database** connected with session storage working
-- [ ] **Webhook verification** using raw request body
-- [ ] **App Bridge** configured with host parameter
-- [ ] **CSP headers** set correctly for embedding
-- [ ] **Shopify Functions** built and deployed successfully
-- [ ] **Theme extensions** installed on storefront
-- [ ] **App Proxy** configured for free product selection
-- [ ] **Environment variables** set securely
-- [ ] **Health checks** and monitoring configured
-
-### Functional Testing ✅
-- [ ] Admin dashboard loads in Shopify admin
-- [ ] Milestone progress displays on cart page
-- [ ] Free shipping applies at correct thresholds
-- [ ] Free product selection enforces limits
-- [ ] Webhooks process orders correctly
-- [ ] Authentication flow works end-to-end
-- [ ] Mobile responsiveness verified
-
----
-
-## 🎉 SUCCESS!
-
-Your Beauty Industry E-Commerce Admin Dashboard is now **technically accurately deployed** to Shopify with:
-
-✅ **Proper webhook verification** using raw request body  
-✅ **Buildable Shopify Functions** for shipping and gift logic  
-✅ **Theme App Extensions** for customer-facing milestone UI  
-✅ **External hosting** with health checks and monitoring  
-✅ **Security hardening** with rate limiting and validation  
-✅ **Production-ready** configuration and deployment  
-
-The milestone reward system (2500/3000/4000/5000 PKR thresholds) will work seamlessly across your Shopify store with proper discount automation and customer selection interface!
-
-## 🔧 Post-Deployment Support
-
-### Monitoring Commands
+#### Database Maintenance
 ```bash
-# Check app status
-shopify app info
+# Note: Direct psql commands may not work with Neon's WebSocket endpoints
+# Use Neon's web console or create API endpoints for maintenance tasks
 
-# Monitor function logs
-shopify app logs --source=function
-
-# Test webhook delivery
-shopify app tunnel --port=3000
+# Example: Create maintenance API endpoints in your application
+# GET /api/admin/cleanup-sessions
+# GET /api/admin/archive-analytics
+# These should use the existing db connection from server/db.ts
 ```
 
-### Common Issues & Solutions
-- **Functions not deploying**: Check input.graphql syntax and extension.toml configuration
-- **Webhooks failing**: Verify raw body handling and HMAC computation
-- **App not embedding**: Check CSP headers and host parameter usage
-- **Free products not applying**: Verify cart attributes are being set and Functions are processing them
+#### Application Updates
+```bash
+# Update dependencies (monthly)
+npm audit
+npm update
 
-Your deployment is now production-ready! 🚀
+# Push schema changes when needed
+npm run db:push
+```
+
+---
+
+## 8. Troubleshooting
+
+### 🐛 Common Issues
+
+#### Database Connection Issues
+```bash
+# Check DATABASE_URL format (must be Neon connection string)
+echo $DATABASE_URL
+
+# Verify DATABASE_URL contains Neon endpoint (should include 'neon.tech')
+echo $DATABASE_URL | grep -q 'neon.tech' && echo "✓ Neon URL detected" || echo "✗ Not a Neon URL - this will cause connection failures"
+
+# Test database connectivity through the application
+npm run db:push --verbose
+```
+
+#### Application Startup Issues
+```bash
+# Check Node.js version
+node --version  # Should be 18.0+
+
+# Verify all dependencies installed
+npm list --depth=0
+
+# Check for TypeScript compilation errors
+npm run check
+```
+
+#### API Response Issues
+```bash
+# Check application logs
+tail -f logs/app.log  # If logging to file
+
+# Test API endpoints manually using correct ID types
+# Test with shopifyStoreId (external ID) - works if the store exists
+curl -v http://localhost:5000/api/stores/test-store.myshopify.com
+
+# Test analytics endpoint with internal storeId (UUID)
+# REPLACE {STORE_ID} with actual internal UUID from your store creation
+# To get a valid storeId, create a store first:
+# curl -X POST http://localhost:5000/api/stores -H "Content-Type: application/json" -d '{...}'
+curl -v http://localhost:5000/api/stores/{STORE_ID}/analytics
+```
+
+### 🔍 Debug Mode
+
+Enable debug logging by setting:
+```bash
+NODE_ENV=development
+```
+
+This will enable:
+- Detailed SQL query logging
+- Request/response logging
+- Error stack traces
+
+---
+
+## 9. Future Shopify Integration
+
+### 🛠️ Preparation for Shopify Integration
+
+The current database schema is designed to support future Shopify integration. When ready to implement:
+
+#### Required Environment Variables
+```bash
+# Future Shopify integration variables
+SHOPIFY_API_KEY="your_shopify_api_key"
+SHOPIFY_API_SECRET="your_shopify_api_secret"
+SHOPIFY_SCOPES="read_products,write_products,read_orders,write_orders"
+SHOPIFY_APP_URL="https://your-app-domain.com"
+```
+
+#### Database Fields Ready for Shopify
+- `stores.shopifyStoreId` - Store identifier
+- `stores.accessToken` - OAuth access token
+- `products.shopifyProductId` - Product identifier
+- Cart session tracking for real-time updates
+
+#### Implementation Steps (Future)
+1. Create Shopify Partner account
+2. Set up OAuth flow
+3. Implement webhook handlers
+4. Add Shopify API client
+5. Sync products and orders
+6. Enable real-time cart tracking
+
+---
+
+## 10. Security Considerations
+
+### 🔒 Production Security
+
+#### Database Security
+```bash
+# Use SSL connections in production (Neon connection string example)
+DATABASE_URL="postgresql://neon_user:password@ep-example.us-west-2.aws.neon.tech/beauty_admin_db?sslmode=require"
+
+# Limit database user permissions
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+```
+
+#### API Security
+- Enable CORS properly for production domains
+- Implement rate limiting
+- Use HTTPS in production
+- Validate all input data with Zod schemas
+
+#### Environment Security
+- Never commit `.env` files
+- Use environment-specific secrets management
+- Rotate database credentials regularly
+
+---
+
+This guide covers the current implementation of the Beauty E-commerce Admin Dashboard. For questions or issues, refer to the troubleshooting section or check the application logs.
