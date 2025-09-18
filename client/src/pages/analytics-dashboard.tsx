@@ -29,6 +29,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Milestone } from "@shared/schema";
 
 // Mock store ID
 const STORE_ID = "demo-store-id";
@@ -129,12 +130,19 @@ export default function AnalyticsDashboard() {
     enabled: !!STORE_ID,
   });
 
+  // Fetch milestones data for milestone analytics
+  const { data: milestonesData, isLoading: milestonesLoading } = useQuery<Milestone[]>({
+    queryKey: ['/api/stores', STORE_ID, 'milestones'],
+    enabled: !!STORE_ID,
+  });
+
   // Refresh data mutation
   const refreshMutation = useMutation({
     mutationFn: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'analytics'] }),
-        queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] })
+        queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] }),
+        queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] })
       ]);
     },
     onSuccess: () => {
@@ -302,9 +310,10 @@ export default function AnalyticsDashboard() {
 
           {/* Main Analytics Tabs */}
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
               <TabsTrigger value="campaigns" data-testid="tab-campaigns">Campaigns</TabsTrigger>
+              <TabsTrigger value="milestones" data-testid="tab-milestones">Milestones</TabsTrigger>
               <TabsTrigger value="products" data-testid="tab-products">Products</TabsTrigger>
               <TabsTrigger value="trends" data-testid="tab-trends">Trends</TabsTrigger>
             </TabsList>
@@ -430,6 +439,199 @@ export default function AnalyticsDashboard() {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Milestones Tab */}
+            <TabsContent value="milestones" className="space-y-6">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+                {/* Milestone Metrics */}
+                <MetricCard
+                  title="Total Milestones"
+                  value={milestonesData ? milestonesData.length.toString() : "0"}
+                  change="+12.5%"
+                  trend="up"
+                  icon={Target}
+                  color="text-blue-500"
+                />
+                <MetricCard
+                  title="Active Milestones"
+                  value={milestonesData ? milestonesData.filter((m: any) => m.status === 'active').length.toString() : "0"}
+                  change="+8.3%"
+                  trend="up"
+                  icon={Target}
+                  color="text-green-500"
+                />
+                <MetricCard
+                  title="Total Unlocks"
+                  value={analyticsData ? analyticsData.totalRewardsUnlocked?.toString() || "0" : "0"}
+                  change="+25.1%"
+                  trend="up"
+                  icon={Users}
+                  color="text-green-500"
+                />
+                <MetricCard
+                  title="Conversion Rate"
+                  value={(() => {
+                    const hits = analyticsData?.milestonesHit || 0;
+                    const total = analyticsData?.totalRewardsUnlocked || 1;
+                    return `${(hits / Math.max(total, 1) * 100).toFixed(1)}%`;
+                  })()}
+                  change="+15.2%"
+                  trend="up"
+                  icon={Percent}
+                  color="text-blue-500"
+                />
+              </div>
+
+              {/* Milestone Performance */}
+              <Card className="card-hover">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Milestone Performance</CardTitle>
+                    <CardDescription>
+                      Detailed performance metrics for all milestones
+                    </CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {milestonesData && milestonesData.length > 0 ? (
+                        milestonesData.map((milestone) => (
+                          <Card key={milestone.id} className="border border-border">
+                            <CardHeader className="pb-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                  <h4 className="font-medium text-sm">{milestone.name}</h4>
+                                </div>
+                                <StatusBadge status={milestone.status} />
+                              </div>
+                            </CardHeader>
+                            <CardContent className="pt-0 space-y-3">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Threshold:</span>
+                                <span className="font-medium">{formatCurrency(parseFloat(milestone.thresholdAmount || "0"))}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Reward Type:</span>
+                                <span className="font-medium capitalize">{milestone.rewardType?.replace(/_/g, ' ') || 'Unknown'}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Usage:</span>
+                                <span className="font-medium">{milestone.usageCount || 0} / {milestone.usageLimit || '∞'}</span>
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Progress:</span>
+                                  <span className="font-medium">{Math.min(((milestone.usageCount || 0) / (milestone.usageLimit || 100)) * 100, 100).toFixed(0)}%</span>
+                                </div>
+                                <Progress 
+                                  value={Math.min(((milestone.usageCount || 0) / (milestone.usageLimit || 100)) * 100, 100)} 
+                                  className="h-2"
+                                />
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))
+                      ) : (
+                        <div className="col-span-full">
+                          <Card className="border-dashed">
+                            <CardContent className="flex flex-col items-center justify-center py-8">
+                              <Target className="h-12 w-12 text-muted-foreground mb-4" />
+                              <h3 className="text-lg font-semibold mb-2">No milestones found</h3>
+                              <p className="text-muted-foreground text-center mb-4">
+                                Create milestones to start tracking customer engagement and rewards.
+                              </p>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Milestone Insights */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <Card className="card-hover">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <BarChart3 className="h-5 w-5" />
+                      <span>Milestone Engagement</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Customer engagement with milestone rewards
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64 flex items-center justify-center bg-muted/20 rounded-lg border border-dashed">
+                      <div className="text-center">
+                        <BarChart3 className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Engagement Chart Placeholder</p>
+                        <p className="text-xs text-muted-foreground">Chart visualization would appear here</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+                      <div className="text-center">
+                        <p className="font-medium text-foreground">{analyticsData?.totalRewardsUnlocked || 0}</p>
+                        <p className="text-muted-foreground">Total Unlocks</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="font-medium text-foreground">{analyticsData?.milestonesHit || 0}</p>
+                        <p className="text-muted-foreground">Redeemed</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="font-medium text-green-500">
+                          {(() => {
+                            const hits = analyticsData?.milestonesHit || 0;
+                            const total = analyticsData?.totalRewardsUnlocked || 1;
+                            return `${(hits / Math.max(total, 1) * 100).toFixed(1)}%`;
+                          })()}
+                        </p>
+                        <p className="text-muted-foreground">Success Rate</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="card-hover">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <PieChart className="h-5 w-5" />
+                      <span>Reward Distribution</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Breakdown of reward types by popularity
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {[
+                        { type: "Free Delivery", count: milestonesData?.filter((m) => m.rewardType === 'free_delivery').length || 0, color: "bg-blue-500" },
+                        { type: "Free Products", count: milestonesData?.filter((m) => m.rewardType === 'free_products').length || 0, color: "bg-green-500" },
+                        { type: "Discount", count: milestonesData?.filter((m) => m.rewardType === 'discount').length || 0, color: "bg-yellow-500" }
+                      ].map((reward) => (
+                        <div key={reward.type} className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-3 h-3 rounded-full ${reward.color}`}></div>
+                            <span className="text-sm font-medium">{reward.type}</span>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <span className="text-sm text-muted-foreground">{reward.count} milestone{reward.count !== 1 ? 's' : ''}</span>
+                            <div className="w-16">
+                              <Progress 
+                                value={milestonesData ? (reward.count / Math.max(milestonesData.length, 1)) * 100 : 0} 
+                                className="h-2"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Campaigns Tab */}
