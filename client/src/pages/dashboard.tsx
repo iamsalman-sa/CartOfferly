@@ -18,8 +18,8 @@ export default function Dashboard() {
   const [bundlesExcluded, setBundlesExcluded] = useState(true);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
-  // Mock store ID for demo - in real app this would come from auth
-  const storeId = "demo-store-id";
+  // Get store ID from environment or URL parameters in production
+  const storeId = import.meta.env.VITE_SHOPIFY_STORE_ID || "demo-store-id";
 
   const { data: analytics } = useQuery({
     queryKey: ["/api/stores", storeId, "analytics"],

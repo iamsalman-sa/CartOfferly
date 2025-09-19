@@ -39,8 +39,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 
-// Mock store ID
-const STORE_ID = "demo-store-id";
+// Get store ID from environment or URL parameters in production
+const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || "demo-store-id";
 
 // Seasonal promotion schema
 const seasonalPromotionSchema = z.object({

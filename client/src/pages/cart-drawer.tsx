@@ -27,8 +27,8 @@ export default function CartDrawer() {
         try {
           const cartTokenValue = nanoid();
           const response = await apiRequest("POST", "/api/cart-sessions", {
-            storeId: "demo-store-id", 
-            customerId: "demo-customer",
+            storeId: import.meta.env.VITE_SHOPIFY_STORE_ID || "demo-store-id", 
+            customerId: import.meta.env.VITE_SHOPIFY_CUSTOMER_ID || "demo-customer",
             cartToken: cartTokenValue
           });
           const session = await response.json();
@@ -50,31 +50,7 @@ export default function CartDrawer() {
   // Use real cart hook
   const { items: cartItems, cartTotal, session, isLoading, updateQuantity, selectFreeProducts, isUpdating, addItem } = useCart(cartToken);
   
-  // Initialize demo items when cart is empty
-  useEffect(() => {
-    if (cartToken && cartItems.length === 0 && !isLoading) {
-      const demoItems = [
-        {
-          id: "1",
-          name: "Premium Leather Handbag",
-          price: 1500,
-          quantity: 2,
-          image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=150&h=150&fit=crop",
-          variant: "Color: Black | Size: Medium"
-        },
-        {
-          id: "2", 
-          name: "Designer Watch", 
-          price: 1200,
-          quantity: 1,
-          image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=150&h=150&fit=crop",
-          variant: "Color: Silver | Band: Steel"
-        }
-      ];
-      
-      demoItems.forEach(item => addItem(item));
-    }
-  }, [cartToken, cartItems.length, isLoading, addItem]);
+  // Cart is ready for real Shopify integration - no demo data initialization
   
   const freeDelivery = cartTotal >= 2500 ? 300 : 0;
   const freeProductsValue = selectedFreeProducts.reduce((total, product) => total + product.value, 0);
@@ -88,11 +64,6 @@ export default function CartDrawer() {
     }
   };
 
-  const resetDemoCart = () => {
-    // Clear localStorage and refresh to recreate demo cart
-    localStorage.removeItem('cartToken');
-    window.location.reload();
-  };
 
   const handleMilestoneUnlocked = () => {
     setShowCelebration(true);

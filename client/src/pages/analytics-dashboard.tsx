@@ -60,8 +60,8 @@ interface MonthlyTrend {
   campaigns: number;
 }
 
-// Mock store ID
-const STORE_ID = "demo-store-id";
+// Get store ID from environment or URL parameters in production
+const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || "demo-store-id";
 
 // Utility functions
 function formatCurrency(amount: number): string {

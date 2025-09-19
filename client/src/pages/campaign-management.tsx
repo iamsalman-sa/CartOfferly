@@ -39,8 +39,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
 
-// Mock store ID
-const STORE_ID = "demo-store-id";
+// Get store ID from environment or URL parameters in production
+const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || "demo-store-id";
 
 // Campaign form schema
 const campaignSchema = z.object({
