@@ -487,6 +487,55 @@ export default function CampaignManagement() {
     },
   });
 
+  // Bulk operations
+  const bulkActivateMutation = useMutation({
+    mutationFn: async (campaignIds: string[]) => {
+      await Promise.all(campaignIds.map(id => 
+        apiRequest("POST", `/api/campaigns/${id}/resume`)
+      ));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      setSelectedCampaigns([]);
+      toast({ title: "Campaigns activated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error activating campaigns", variant: "destructive" });
+    }
+  });
+
+  const bulkPauseMutation = useMutation({
+    mutationFn: async (campaignIds: string[]) => {
+      await Promise.all(campaignIds.map(id => 
+        apiRequest("POST", `/api/campaigns/${id}/pause`)
+      ));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      setSelectedCampaigns([]);
+      toast({ title: "Campaigns paused successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error pausing campaigns", variant: "destructive" });
+    }
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (campaignIds: string[]) => {
+      await Promise.all(campaignIds.map(id => 
+        apiRequest("DELETE", `/api/campaigns/${id}`)
+      ));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      setSelectedCampaigns([]);
+      toast({ title: "Campaigns deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error deleting campaigns", variant: "destructive" });
+    }
+  });
+
   const updateCampaignStatus = (campaignId: string, newStatus: string) => {
     updateCampaignStatusMutation.mutate({ campaignId, newStatus });
   };
@@ -504,6 +553,39 @@ export default function CampaignManagement() {
   const handleUpdateCampaign = (data: CampaignFormData) => {
     if (editingCampaign) {
       updateCampaignMutation.mutate({ id: editingCampaign.id, data });
+    }
+  };
+
+  // Bulk selection helpers
+  const toggleCampaignSelection = (campaignId: string) => {
+    setSelectedCampaigns(prev => {
+      if (prev.includes(campaignId)) {
+        return prev.filter(id => id !== campaignId);
+      } else {
+        return [...prev, campaignId];
+      }
+    });
+  };
+
+  const toggleAllCampaigns = () => {
+    if (selectedCampaigns.length === campaigns.length) {
+      setSelectedCampaigns([]);
+    } else {
+      setSelectedCampaigns(campaigns.map((c: any) => c.id));
+    }
+  };
+
+  const handleBulkAction = (action: 'activate' | 'pause' | 'delete') => {
+    if (selectedCampaigns.length === 0) return;
+    
+    if (action === 'delete') {
+      if (confirm(`Are you sure you want to delete ${selectedCampaigns.length} campaign(s)? This action cannot be undone.`)) {
+        bulkDeleteMutation.mutate(selectedCampaigns);
+      }
+    } else if (action === 'activate') {
+      bulkActivateMutation.mutate(selectedCampaigns);
+    } else if (action === 'pause') {
+      bulkPauseMutation.mutate(selectedCampaigns);
     }
   };
 
@@ -550,15 +632,29 @@ export default function CampaignManagement() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search campaigns..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                    data-testid="input-search-campaigns"
-                  />
+                <div className="flex items-center gap-4">
+                  {campaigns.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={selectedCampaigns.length === campaigns.length && campaigns.length > 0}
+                        onCheckedChange={toggleAllCampaigns}
+                        data-testid="checkbox-select-all-campaigns"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        Select All ({campaigns.length})
+                      </span>
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search campaigns..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                      data-testid="input-search-campaigns"
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-4">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -590,6 +686,62 @@ export default function CampaignManagement() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Bulk Actions Bar */}
+          {selectedCampaigns.length > 0 && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <CheckSquare className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">
+                      {selectedCampaigns.length} campaign{selectedCampaigns.length === 1 ? '' : 's'} selected
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleBulkAction('activate')}
+                      disabled={bulkActivateMutation.isPending}
+                      data-testid="button-bulk-activate"
+                    >
+                      <Play className="mr-2 h-4 w-4" />
+                      Activate
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleBulkAction('pause')}
+                      disabled={bulkPauseMutation.isPending}
+                      data-testid="button-bulk-pause"
+                    >
+                      <Pause className="mr-2 h-4 w-4" />
+                      Pause
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleBulkAction('delete')}
+                      disabled={bulkDeleteMutation.isPending}
+                      data-testid="button-bulk-delete"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setSelectedCampaigns([])}
+                      data-testid="button-clear-selection"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Campaigns List */}
           <div className="space-y-4">
@@ -632,48 +784,55 @@ export default function CampaignManagement() {
             ) : campaigns.map((campaign: any) => (
               <Card key={campaign.id} className="card-hover" data-testid={`campaign-card-${campaign.id}`}>
                 <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <Checkbox
+                      checked={selectedCampaigns.includes(campaign.id)}
+                      onCheckedChange={() => toggleCampaignSelection(campaign.id)}
+                      data-testid={`checkbox-campaign-${campaign.id}`}
+                    />
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <CampaignTypeIcon type={campaign.type} />
-                        <h3 className="text-lg font-medium text-foreground">{campaign.name}</h3>
-                        <StatusBadge status={campaign.status} />
-                        <Badge variant="secondary" className="capitalize">
-                          {campaign.type.replace('_', ' ')}
-                        </Badge>
-                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <CampaignTypeIcon type={campaign.type} />
+                            <h3 className="text-lg font-medium text-foreground">{campaign.name}</h3>
+                            <StatusBadge status={campaign.status} />
+                            <Badge variant="secondary" className="capitalize">
+                              {campaign.type.replace('_', ' ')}
+                            </Badge>
+                          </div>
                       
                       {campaign.description && (
                         <p className="text-sm text-muted-foreground mb-3">{campaign.description}</p>
                       )}
                       
-                      <div className="grid grid-cols-2 gap-4 text-sm lg:grid-cols-4">
-                        <div>
-                          <span className="text-muted-foreground">Period: </span>
-                          <span className="text-foreground">
-                            {formatDate(campaign.startDate)} - {formatDate(campaign.endDate)}
-                          </span>
+                          <div className="grid grid-cols-2 gap-4 text-sm lg:grid-cols-4">
+                            <div>
+                              <span className="text-muted-foreground">Period: </span>
+                              <span className="text-foreground">
+                                {formatDate(campaign.startDate)} - {formatDate(campaign.endDate)}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Usage: </span>
+                              <span className="text-foreground">
+                                {campaign.usageCount || 0}/{campaign.usageLimit || 'Unlimited'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Min Order: </span>
+                              <span className="text-foreground">
+                                {campaign.minimumOrderValue ? formatCurrency(parseFloat(campaign.minimumOrderValue)) : 'None'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Priority: </span>
+                              <span className="text-foreground">{campaign.priority}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Usage: </span>
-                          <span className="text-foreground">
-                            {campaign.usageCount || 0}/{campaign.usageLimit || 'Unlimited'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Min Order: </span>
-                          <span className="text-foreground">
-                            {campaign.minimumOrderValue ? formatCurrency(parseFloat(campaign.minimumOrderValue)) : 'None'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Priority: </span>
-                          <span className="text-foreground">{campaign.priority}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
+                        
+                        <div className="flex items-center space-x-2">
                       {campaign.status === "active" && (
                         <Button
                           variant="outline"
@@ -733,6 +892,8 @@ export default function CampaignManagement() {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </Link>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>

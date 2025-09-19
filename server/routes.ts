@@ -432,6 +432,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Campaign status management
+  app.post("/api/campaigns/:campaignId/pause", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      await storage.updateCampaignStatus(campaignId, 'paused');
+      res.json({ message: "Campaign paused successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error pausing campaign", error });
+    }
+  });
+
+  app.post("/api/campaigns/:campaignId/resume", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      await storage.updateCampaignStatus(campaignId, 'active');
+      res.json({ message: "Campaign resumed successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Error resuming campaign", error });
+    }
+  });
+
   app.patch("/api/campaigns/:campaignId/status", async (req, res) => {
     try {
       const { campaignId } = req.params;
