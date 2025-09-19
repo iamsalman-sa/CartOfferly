@@ -31,6 +31,35 @@ import {
 import { cn } from "@/lib/utils";
 import type { Milestone } from "@shared/schema";
 
+// Types for API responses
+interface AnalyticsData {
+  totalRewardsUnlocked: number;
+  conversionRate: number;
+  averageOrderValue: number;
+  milestonesHit: number;
+  totalRevenueImpact: number;
+}
+
+interface CampaignData {
+  id: string;
+  name: string;
+  status: string;
+  type: string;
+  priority: number;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+  usageLimit?: number;
+  minimumOrderValue?: string;
+}
+
+interface MonthlyTrend {
+  month: string;
+  revenue: number;
+  orders: number;
+  campaigns: number;
+}
+
 // Mock store ID
 const STORE_ID = "demo-store-id";
 
@@ -144,8 +173,8 @@ export default function AnalyticsDashboard() {
           generatedAt: new Date().toISOString(),
           timeRange
         },
-        campaigns: campaignsData || [],
-        milestones: milestonesData || [],
+        campaigns: campaigns || [],
+        milestones: milestones || [],
         monthlyTrends
       };
 
@@ -167,7 +196,7 @@ export default function AnalyticsDashboard() {
         // Campaigns section
         formatCsvRow(["CAMPAIGNS", "", "", "", "", ""]),
         formatCsvRow(["Name", "Status", "Type", "Priority", "Start Date", "End Date"]),
-        ...exportData.campaigns.map((campaign: any) => 
+        ...exportData.campaigns.map((campaign: CampaignData) => 
           formatCsvRow([
             campaign.name || "",
             campaign.status || "",
@@ -196,7 +225,7 @@ export default function AnalyticsDashboard() {
         // Monthly trends section
         formatCsvRow(["MONTHLY TRENDS", "", "", ""]),
         formatCsvRow(["Month", "Revenue", "Orders", "Campaigns"]),
-        ...exportData.monthlyTrends.map((trend: any) => 
+        ...exportData.monthlyTrends.map((trend: MonthlyTrend) => 
           formatCsvRow([
             trend.month || "",
             trend.revenue || 0,
@@ -237,13 +266,13 @@ export default function AnalyticsDashboard() {
   };
 
   // Fetch analytics data
-  const { data: analyticsData, isLoading: analyticsLoading } = useQuery({
+  const { data: analyticsData, isLoading: analyticsLoading } = useQuery<AnalyticsData>({
     queryKey: ['/api/stores', STORE_ID, 'analytics', timeRange],
     enabled: !!STORE_ID,
   });
 
   // Fetch campaigns data for campaign performance
-  const { data: campaignsData, isLoading: campaignsLoading } = useQuery({
+  const { data: campaignsData, isLoading: campaignsLoading } = useQuery<CampaignData[]>({
     queryKey: ['/api/stores', STORE_ID, 'campaigns'],
     enabled: !!STORE_ID,
   });
@@ -253,6 +282,10 @@ export default function AnalyticsDashboard() {
     queryKey: ['/api/stores', STORE_ID, 'milestones'],
     enabled: !!STORE_ID,
   });
+
+  // Safe array defaults to prevent empty object inference
+  const campaigns = Array.isArray(campaignsData) ? campaignsData : [];
+  const milestones = Array.isArray(milestonesData) ? milestonesData : [];
 
   // Refresh data mutation
   const refreshMutation = useMutation({
@@ -310,9 +343,9 @@ export default function AnalyticsDashboard() {
   ];
 
   // Calculate campaign performance from real data
-  const campaignPerformance = (campaignsData || []).filter((campaign: any) => {
+  const campaignPerformance = campaigns.filter((campaign: CampaignData) => {
     return campaignFilter === "all" || campaign.status === campaignFilter;
-  }).map((campaign: any) => ({
+  }).map((campaign: CampaignData) => ({
     ...campaign,
     impressions: Math.floor(Math.random() * 50000) + 10000, // Mock data for now
     clicks: Math.floor(Math.random() * 5000) + 1000,
@@ -350,13 +383,13 @@ export default function AnalyticsDashboard() {
   ];
 
   // Mock monthly trends for now (would come from analytics)
-  const monthlyTrends = [
-    { month: "Jan", revenue: 1200000, orders: 580, campaigns: campaignsData?.length || 8 },
-    { month: "Feb", revenue: 1450000, orders: 720, campaigns: campaignsData?.length || 10 },
-    { month: "Mar", revenue: 1680000, orders: 834, campaigns: campaignsData?.length || 12 },
-    { month: "Apr", revenue: 2100000, orders: 1024, campaigns: campaignsData?.length || 15 },
-    { month: "May", revenue: 2450000, orders: 1247, campaigns: campaignsData?.length || 18 },
-    { month: "Jun", revenue: 2680000, orders: 1389, campaigns: campaignsData?.length || 16 }
+  const monthlyTrends: MonthlyTrend[] = [
+    { month: "Jan", revenue: 1200000, orders: 580, campaigns: campaigns?.length || 8 },
+    { month: "Feb", revenue: 1450000, orders: 720, campaigns: campaigns?.length || 10 },
+    { month: "Mar", revenue: 1680000, orders: 834, campaigns: campaigns?.length || 12 },
+    { month: "Apr", revenue: 2100000, orders: 1024, campaigns: campaigns?.length || 15 },
+    { month: "May", revenue: 2450000, orders: 1247, campaigns: campaigns?.length || 18 },
+    { month: "Jun", revenue: 2680000, orders: 1389, campaigns: campaigns?.length || 16 }
   ];
 
   return (
@@ -628,7 +661,7 @@ export default function AnalyticsDashboard() {
                                   <div className="w-2 h-2 rounded-full bg-green-500"></div>
                                   <h4 className="font-medium text-sm">{milestone.name}</h4>
                                 </div>
-                                <StatusBadge status={milestone.status} />
+                                <StatusBadge status={milestone.status || "active"} />
                               </div>
                             </CardHeader>
                             <CardContent className="pt-0 space-y-3">

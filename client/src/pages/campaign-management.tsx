@@ -381,18 +381,18 @@ export default function CampaignManagement() {
   const { toast } = useToast();
 
   // Fetch campaigns data
-  const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError } = useQuery({
+  const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError } = useQuery<any[]>({
     queryKey: ['/api/stores', STORE_ID, 'campaigns'],
     enabled: !!STORE_ID,
   });
 
-  // Filter campaigns based on search and filters
-  const campaigns = (campaignsData || []).filter((campaign: any) => {
+  // Filter campaigns based on search and filters  
+  const campaigns = Array.isArray(campaignsData) ? campaignsData.filter((campaign: any) => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || campaign.status === statusFilter;
     const matchesType = typeFilter === "all" || campaign.type === typeFilter;
     return matchesSearch && matchesStatus && matchesType;
-  });
+  }) : [];
 
   const createCampaignMutation = useMutation({
     mutationFn: async (data: CampaignFormData) => {
