@@ -706,10 +706,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { storeId } = req.params;
       
       const defaultMilestones = [
-        { storeId, thresholdAmount: '2500', rewardType: 'free_delivery', freeProductCount: 0 },
-        { storeId, thresholdAmount: '3000', rewardType: 'free_products', freeProductCount: 1 },
-        { storeId, thresholdAmount: '4000', rewardType: 'free_products', freeProductCount: 2 },
-        { storeId, thresholdAmount: '5000', rewardType: 'free_products', freeProductCount: 3 },
+        { storeId, name: 'Free Delivery', thresholdAmount: '2500', rewardType: 'free_delivery', freeProductCount: 0 },
+        { storeId, name: 'Free Product - Level 1', thresholdAmount: '3000', rewardType: 'free_products', freeProductCount: 1 },
+        { storeId, name: 'Free Product - Level 2', thresholdAmount: '4000', rewardType: 'free_products', freeProductCount: 2 },
+        { storeId, name: 'Free Product - Level 3', thresholdAmount: '5000', rewardType: 'free_products', freeProductCount: 3 },
       ];
 
       const createdMilestones = [];
