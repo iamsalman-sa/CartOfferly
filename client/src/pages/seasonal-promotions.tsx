@@ -36,7 +36,9 @@ import {
   Save,
   X,
   Palette,
-  Search
+  Search,
+  Copy,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -455,6 +457,8 @@ export default function SeasonalPromotions() {
   const [previewingPromotion, setPreviewingPromotion] = useState<any>(null);
   const [selectedPromotions, setSelectedPromotions] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showStats, setShowStats] = useState<string | null>(null);
+  const [duplicateDialog, setDuplicateDialog] = useState<{ open: boolean; promotion: any | null }>({ open: false, promotion: null });
   const { toast } = useToast();
 
   // Fetch seasonal promotions with status filter
@@ -591,6 +595,37 @@ export default function SeasonalPromotions() {
     },
   });
 
+  // Fetch promotion stats
+  const { data: promotionStats } = useQuery({
+    queryKey: ['/api/seasonal-promotions', showStats, 'stats'],
+    queryFn: () => apiRequest("GET", `/api/seasonal-promotions/${showStats}/stats`).then(res => res.json()),
+    enabled: !!showStats,
+  });
+
+  // Duplicate promotion mutation
+  const duplicatePromotionMutation = useMutation({
+    mutationFn: async ({ promotionId, newName }: { promotionId: string; newName: string }) => {
+      return apiRequest("POST", `/api/seasonal-promotions/${promotionId}/duplicate`, { 
+        newName, 
+        modifiedBy: "admin" 
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'seasonal-promotions'] });
+      toast({
+        title: "Success",
+        description: "Promotion duplicated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: "Failed to duplicate promotion",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Filter promotions based on search query
   const filteredPromotions = (promotions as any[]).filter((promotion: any) => {
     if (!searchQuery.trim()) return true;
@@ -637,6 +672,17 @@ export default function SeasonalPromotions() {
         bulkDeleteMutation.mutate(selectedPromotions);
         break;
     }
+  };
+
+  const handleDuplicate = (promotion: any) => {
+    setDuplicateDialog({ open: true, promotion });
+  };
+
+  const handleConfirmDuplicate = (newName?: string) => {
+    if (duplicateDialog.promotion && newName) {
+      duplicatePromotionMutation.mutate({ promotionId: duplicateDialog.promotion.id, newName });
+    }
+    setDuplicateDialog({ open: false, promotion: null });
   };
 
   return (
@@ -922,10 +968,26 @@ export default function SeasonalPromotions() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => setShowStats(promotion.id)}
+                        data-testid={`button-stats-${promotion.id}`}
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => setEditingPromotion(promotion)}
                         data-testid={`button-edit-${promotion.id}`}
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDuplicate(promotion)}
+                        data-testid={`button-duplicate-${promotion.id}`}
+                      >
+                        <Copy className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="outline"
@@ -1085,6 +1147,87 @@ export default function SeasonalPromotions() {
                   </div>
                 </div>
               )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Stats Dialog */}
+          {showStats && (
+            <Dialog open={!!showStats} onOpenChange={() => setShowStats(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Promotion Statistics</DialogTitle>
+                  <DialogDescription>Performance metrics for this seasonal promotion</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{promotionStats?.totalUsage || 0}</div>
+                    <div className="text-sm text-muted-foreground">Total Uses</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{promotionStats?.uniqueCustomers || 0}</div>
+                    <div className="text-sm text-muted-foreground">Unique Customers</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">PKR {promotionStats?.totalDiscount || 0}</div>
+                    <div className="text-sm text-muted-foreground">Total Discount</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">PKR {promotionStats?.averageOrderValue || 0}</div>
+                    <div className="text-sm text-muted-foreground">Avg Order Value</div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Duplicate Promotion Confirmation Dialog */}
+          <Dialog
+            open={duplicateDialog.open}
+            onOpenChange={(open) => setDuplicateDialog({ open, promotion: duplicateDialog.promotion })}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Duplicate Promotion</DialogTitle>
+                <DialogDescription>
+                  Enter a name for the duplicated promotion
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="duplicate-name">New Promotion Name</Label>
+                  <Input
+                    id="duplicate-name"
+                    defaultValue={duplicateDialog.promotion ? `${duplicateDialog.promotion.name} (Copy)` : ""}
+                    placeholder="Enter new promotion name"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const target = e.target as HTMLInputElement;
+                        handleConfirmDuplicate(target.value);
+                      }
+                    }}
+                    data-testid="input-duplicate-name"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setDuplicateDialog({ open: false, promotion: null })}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const input = document.getElementById('duplicate-name') as HTMLInputElement;
+                      if (input?.value) {
+                        handleConfirmDuplicate(input.value);
+                      }
+                    }}
+                    data-testid="button-confirm-duplicate"
+                  >
+                    Duplicate
+                  </Button>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
         </div>

@@ -78,6 +78,13 @@ export interface IStorage {
   deleteDiscountCampaign(campaignId: string): Promise<void>;
   updateCampaignStatus(campaignId: string, status: string): Promise<void>;
   getActiveCampaignsByStore(storeId: string): Promise<DiscountCampaign[]>;
+  getCampaignStats(campaignId: string): Promise<{
+    totalUsage: number;
+    uniqueCustomers: number;
+    totalDiscount: number;
+    averageOrderValue: number;
+  }>;
+  duplicateCampaign(campaignId: string, newName: string, createdBy?: string): Promise<DiscountCampaign>;
 
   // Discount rule methods
   createDiscountRule(rule: InsertDiscountRule): Promise<DiscountRule>;
@@ -113,6 +120,13 @@ export interface IStorage {
   activateSeasonalPromotion(promotionId: string): Promise<void>;
   deactivateSeasonalPromotion(promotionId: string): Promise<void>;
   getActiveSeasonalPromotions(storeId: string): Promise<SeasonalPromotion[]>;
+  getSeasonalPromotionStats(promotionId: string): Promise<{
+    totalUsage: number;
+    uniqueCustomers: number;
+    totalDiscount: number;
+    averageOrderValue: number;
+  }>;
+  duplicateSeasonalPromotion(promotionId: string, newName: string, createdBy?: string): Promise<SeasonalPromotion>;
 
   // Discount analytics methods
   createDiscountAnalytics(analytics: InsertDiscountAnalytics): Promise<DiscountAnalytics>;
@@ -494,6 +508,57 @@ export class DatabaseStorage implements IStorage {
       .orderBy(discountCampaigns.priority, desc(discountCampaigns.createdAt));
   }
 
+  async getCampaignStats(campaignId: string): Promise<{
+    totalUsage: number;
+    uniqueCustomers: number;
+    totalDiscount: number;
+    averageOrderValue: number;
+  }> {
+    // Implementation for campaign statistics
+    const [campaign] = await db.select().from(discountCampaigns)
+      .where(eq(discountCampaigns.id, campaignId));
+    
+    if (!campaign) {
+      throw new Error('Campaign not found');
+    }
+
+    // Get analytics data for this campaign
+    const analytics = await db.select().from(discountAnalytics)
+      .where(eq(discountAnalytics.campaignId, campaignId));
+
+    const totalRevenue = analytics.reduce((sum, a) => sum + parseFloat(a.totalRevenue || '0'), 0);
+    const totalConversions = analytics.reduce((sum, a) => sum + (a.totalConversions || 0), 0);
+
+    return {
+      totalUsage: campaign.usageCount || 0,
+      uniqueCustomers: totalConversions,
+      totalDiscount: parseFloat(campaign.discountValue || '0') * (campaign.usageCount || 0),
+      averageOrderValue: totalConversions > 0 ? totalRevenue / totalConversions : 0
+    };
+  }
+
+  async duplicateCampaign(campaignId: string, newName: string, createdBy?: string): Promise<DiscountCampaign> {
+    const [originalCampaign] = await db.select().from(discountCampaigns)
+      .where(eq(discountCampaigns.id, campaignId));
+    
+    if (!originalCampaign) {
+      throw new Error('Original campaign not found');
+    }
+
+    const { id, createdAt, updatedAt, usageCount, ...campaignData } = originalCampaign;
+
+    const [duplicatedCampaign] = await db.insert(discountCampaigns).values({
+      ...campaignData,
+      name: newName,
+      status: 'draft', // Start as draft
+      usageCount: 0,
+      modifiedBy: createdBy,
+      updatedAt: new Date()
+    }).returning();
+
+    return duplicatedCampaign;
+  }
+
   // Discount rule methods
   async createDiscountRule(rule: InsertDiscountRule): Promise<DiscountRule> {
     const [newRule] = await db.insert(discountRules).values(rule).returning();
@@ -652,6 +717,57 @@ export class DatabaseStorage implements IStorage {
         eq(seasonalPromotions.isActive, true)
       ))
       .orderBy(desc(seasonalPromotions.createdAt));
+  }
+
+  async getSeasonalPromotionStats(promotionId: string): Promise<{
+    totalUsage: number;
+    uniqueCustomers: number;
+    totalDiscount: number;
+    averageOrderValue: number;
+  }> {
+    // Implementation for seasonal promotion statistics
+    const [promotion] = await db.select().from(seasonalPromotions)
+      .where(eq(seasonalPromotions.id, promotionId));
+    
+    if (!promotion) {
+      throw new Error('Seasonal promotion not found');
+    }
+
+    // Get reward history data for this promotion (seasonal promotions can have milestone rewards)
+    const rewards = await db.select().from(rewardHistory)
+      .where(eq(rewardHistory.promotionId, promotionId));
+
+    const uniqueCustomers = new Set(rewards.map(r => r.cartSessionId)).size;
+    const totalDiscount = rewards.reduce((sum, r) => sum + parseFloat(r.rewardValue || '0'), 0);
+
+    return {
+      totalUsage: promotion.usageCount || 0,
+      uniqueCustomers,
+      totalDiscount,
+      averageOrderValue: uniqueCustomers > 0 ? totalDiscount / uniqueCustomers : 0
+    };
+  }
+
+  async duplicateSeasonalPromotion(promotionId: string, newName: string, createdBy?: string): Promise<SeasonalPromotion> {
+    const [originalPromotion] = await db.select().from(seasonalPromotions)
+      .where(eq(seasonalPromotions.id, promotionId));
+    
+    if (!originalPromotion) {
+      throw new Error('Original seasonal promotion not found');
+    }
+
+    const { id, createdAt, updatedAt, usageCount, ...promotionData } = originalPromotion;
+
+    const [duplicatedPromotion] = await db.insert(seasonalPromotions).values({
+      ...promotionData,
+      name: newName,
+      isActive: false, // Start as inactive
+      usageCount: 0,
+      modifiedBy: createdBy,
+      updatedAt: new Date()
+    }).returning();
+
+    return duplicatedPromotion;
   }
 
   // Discount analytics methods

@@ -474,6 +474,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Campaign stats and duplicate endpoints
+  app.get("/api/campaigns/:campaignId/stats", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const stats = await storage.getCampaignStats(campaignId);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching campaign stats", error });
+    }
+  });
+
+  app.post("/api/campaigns/:campaignId/duplicate", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const { newName, modifiedBy } = req.body;
+      const duplicatedCampaign = await storage.duplicateCampaign(campaignId, newName, modifiedBy);
+      res.json(duplicatedCampaign);
+    } catch (error) {
+      res.status(500).json({ message: "Error duplicating campaign", error });
+    }
+  });
+
   // Discount Rules Management
   app.post("/api/campaigns/:campaignId/rules", async (req, res) => {
     try {
@@ -758,6 +780,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Promotion deactivated" });
     } catch (error) {
       res.status(500).json({ message: "Error deactivating promotion", error });
+    }
+  });
+
+  // Seasonal promotion stats and duplicate endpoints
+  app.get("/api/seasonal-promotions/:promotionId/stats", async (req, res) => {
+    try {
+      const { promotionId } = req.params;
+      const stats = await storage.getSeasonalPromotionStats(promotionId);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching seasonal promotion stats", error });
+    }
+  });
+
+  app.post("/api/seasonal-promotions/:promotionId/duplicate", async (req, res) => {
+    try {
+      const { promotionId } = req.params;
+      const { newName, modifiedBy } = req.body;
+      const duplicatedPromotion = await storage.duplicateSeasonalPromotion(promotionId, newName, modifiedBy);
+      res.json(duplicatedPromotion);
+    } catch (error) {
+      res.status(500).json({ message: "Error duplicating seasonal promotion", error });
     }
   });
 

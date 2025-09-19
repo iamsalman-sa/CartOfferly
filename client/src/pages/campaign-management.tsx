@@ -37,7 +37,8 @@ import {
   X,
   TrendingUp,
   CheckSquare,
-  Square
+  Square,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
@@ -389,6 +390,9 @@ export default function CampaignManagement() {
   const [editingCampaign, setEditingCampaign] = useState<any>(null);
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showStats, setShowStats] = useState<string | null>(null);
+  const [duplicateDialog, setDuplicateDialog] = useState<{ open: boolean; campaign: any | null }>({ open: false, campaign: null });
+  const [previewingCampaign, setPreviewingCampaign] = useState<any>(null);
   const { toast } = useToast();
 
   // Fetch campaigns data
@@ -536,6 +540,37 @@ export default function CampaignManagement() {
     }
   });
 
+  // Fetch campaign stats
+  const { data: campaignStats } = useQuery({
+    queryKey: ['/api/campaigns', showStats, 'stats'],
+    queryFn: () => apiRequest("GET", `/api/campaigns/${showStats}/stats`).then(res => res.json()),
+    enabled: !!showStats,
+  });
+
+  // Duplicate campaign mutation
+  const duplicateCampaignMutation = useMutation({
+    mutationFn: async ({ campaignId, newName }: { campaignId: string; newName: string }) => {
+      return apiRequest("POST", `/api/campaigns/${campaignId}/duplicate`, { 
+        newName, 
+        modifiedBy: "admin" 
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      toast({
+        title: "Success",
+        description: "Campaign duplicated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: "Failed to duplicate campaign",
+        variant: "destructive",
+      });
+    },
+  });
+
   const updateCampaignStatus = (campaignId: string, newStatus: string) => {
     updateCampaignStatusMutation.mutate({ campaignId, newStatus });
   };
@@ -587,6 +622,17 @@ export default function CampaignManagement() {
     } else if (action === 'pause') {
       bulkPauseMutation.mutate(selectedCampaigns);
     }
+  };
+
+  const handleDuplicate = (campaign: any) => {
+    setDuplicateDialog({ open: true, campaign });
+  };
+
+  const handleConfirmDuplicate = (newName?: string) => {
+    if (duplicateDialog.campaign && newName) {
+      duplicateCampaignMutation.mutate({ campaignId: duplicateDialog.campaign.id, newName });
+    }
+    setDuplicateDialog({ open: false, campaign: null });
   };
 
   return (
@@ -869,10 +915,34 @@ export default function CampaignManagement() {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => setShowStats(campaign.id)}
+                        data-testid={`button-stats-${campaign.id}`}
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => setEditingCampaign(campaign)}
                         data-testid={`button-edit-${campaign.id}`}
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDuplicate(campaign)}
+                        data-testid={`button-duplicate-${campaign.id}`}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPreviewingCampaign(campaign)}
+                        data-testid={`button-preview-${campaign.id}`}
+                      >
+                        <Eye className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="outline"
@@ -889,7 +959,7 @@ export default function CampaignManagement() {
                           size="sm"
                           data-testid={`button-view-analytics-${campaign.id}`}
                         >
-                          <Eye className="h-4 w-4" />
+                          <TrendingUp className="h-4 w-4" />
                         </Button>
                       </Link>
                         </div>
@@ -938,6 +1008,146 @@ export default function CampaignManagement() {
                   onCancel={() => setEditingCampaign(null)}
                   isLoading={updateCampaignMutation.isPending}
                 />
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Stats Dialog */}
+          {showStats && (
+            <Dialog open={!!showStats} onOpenChange={() => setShowStats(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Campaign Statistics</DialogTitle>
+                  <DialogDescription>Performance metrics for this campaign</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{campaignStats?.totalUsage || 0}</div>
+                    <div className="text-sm text-muted-foreground">Total Uses</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{campaignStats?.uniqueCustomers || 0}</div>
+                    <div className="text-sm text-muted-foreground">Unique Customers</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">PKR {campaignStats?.totalDiscount || 0}</div>
+                    <div className="text-sm text-muted-foreground">Total Discount</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">PKR {campaignStats?.averageOrderValue || 0}</div>
+                    <div className="text-sm text-muted-foreground">Avg Order Value</div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Duplicate Campaign Confirmation Dialog */}
+          <Dialog
+            open={duplicateDialog.open}
+            onOpenChange={(open) => setDuplicateDialog({ open, campaign: duplicateDialog.campaign })}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Duplicate Campaign</DialogTitle>
+                <DialogDescription>
+                  Enter a name for the duplicated campaign
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="duplicate-campaign-name">New Campaign Name</Label>
+                  <Input
+                    id="duplicate-campaign-name"
+                    defaultValue={duplicateDialog.campaign ? `${duplicateDialog.campaign.name} (Copy)` : ""}
+                    placeholder="Enter new campaign name"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const target = e.target as HTMLInputElement;
+                        handleConfirmDuplicate(target.value);
+                      }
+                    }}
+                    data-testid="input-duplicate-campaign-name"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setDuplicateDialog({ open: false, campaign: null })}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const input = document.getElementById('duplicate-campaign-name') as HTMLInputElement;
+                      if (input?.value) {
+                        handleConfirmDuplicate(input.value);
+                      }
+                    }}
+                    data-testid="button-confirm-duplicate-campaign"
+                  >
+                    Duplicate
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Preview Campaign Dialog */}
+          <Dialog 
+            open={!!previewingCampaign} 
+            onOpenChange={(open) => !open && setPreviewingCampaign(null)}
+          >
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Campaign Preview</DialogTitle>
+                <DialogDescription>
+                  Preview how this campaign will appear to customers
+                </DialogDescription>
+              </DialogHeader>
+              {previewingCampaign && (
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-muted-foreground">Campaign Name:</span>
+                    <span>{previewingCampaign.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-muted-foreground">Type:</span>
+                    <span className="capitalize">{previewingCampaign.type.replace('_', ' ')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-muted-foreground">Status:</span>
+                    <span className="capitalize">{previewingCampaign.status}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-muted-foreground">Priority:</span>
+                    <span>{previewingCampaign.priority}</span>
+                  </div>
+                  {previewingCampaign.description && (
+                    <div>
+                      <span className="font-medium text-muted-foreground">Description:</span>
+                      <p className="mt-1 text-sm">{previewingCampaign.description}</p>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="font-medium text-muted-foreground">Min Order Value:</span>
+                    <span>{previewingCampaign.minimumOrderValue ? `PKR ${previewingCampaign.minimumOrderValue}` : 'None'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-muted-foreground">Usage Limit:</span>
+                    <span>{previewingCampaign.usageLimit || 'Unlimited'}</span>
+                  </div>
+                  
+                  <div className="flex justify-end">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setPreviewingCampaign(null)}
+                      data-testid="button-close-campaign-preview"
+                    >
+                      Close Preview
+                    </Button>
+                  </div>
+                </div>
               )}
             </DialogContent>
           </Dialog>
