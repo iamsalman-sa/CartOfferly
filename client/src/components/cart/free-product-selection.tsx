@@ -17,50 +17,8 @@ interface FreeProductSelectionProps {
   onProductsSelected?: (products: {id: string, value: number}[]) => void;
 }
 
-const freeProducts: FreeProduct[] = [
-  {
-    id: "fp-1",
-    name: "Luxury Perfume",
-    image: "https://images.unsplash.com/photo-1541643600914-78b084683601?w=300&h=200&fit=crop",
-    description: "50ml Bottle",
-    value: 800
-  },
-  {
-    id: "fp-2", 
-    name: "Designer Sunglasses",
-    image: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=300&h=200&fit=crop",
-    description: "UV Protection",
-    value: 1200
-  },
-  {
-    id: "fp-3",
-    name: "Premium Wallet",
-    image: "https://images.unsplash.com/photo-1627123424574-724758594e93?w=300&h=200&fit=crop",
-    description: "Genuine Leather",
-    value: 900
-  },
-  {
-    id: "fp-4",
-    name: "Silk Scarf",
-    image: "https://images.unsplash.com/photo-1601924287153-c4147f4b2f30?w=300&h=200&fit=crop", 
-    description: "Premium Silk",
-    value: 600
-  },
-  {
-    id: "fp-5",
-    name: "Phone Accessory Set",
-    image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=300&h=200&fit=crop",
-    description: "Case & Stand",
-    value: 500
-  },
-  {
-    id: "fp-6",
-    name: "Essential Oil Set",
-    image: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=300&h=200&fit=crop",
-    description: "3 Bottles",
-    value: 700
-  }
-];
+// Free products will be fetched from the backend based on store configuration
+const freeProducts: FreeProduct[] = [];
 
 export default function FreeProductSelection({ cartValue, onProductsSelected }: FreeProductSelectionProps) {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);

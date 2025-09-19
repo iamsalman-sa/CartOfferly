@@ -18,8 +18,8 @@ export default function Dashboard() {
   const [bundlesExcluded, setBundlesExcluded] = useState(true);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
-  // Get store ID from environment or URL parameters in production
-  const storeId = import.meta.env.VITE_SHOPIFY_STORE_ID || "demo-store-id";
+  // Get store ID from environment or localStorage for development
+  const storeId = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
 
   const { data: analytics } = useQuery({
     queryKey: ["/api/stores", storeId, "analytics"],

@@ -26,9 +26,12 @@ export default function CartDrawer() {
         // Create new cart session
         try {
           const cartTokenValue = nanoid();
+          const storeId = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
+          const customerId = import.meta.env.VITE_SHOPIFY_CUSTOMER_ID || localStorage.getItem('SHOPIFY_CUSTOMER_ID') || 'development-customer';
+          
           const response = await apiRequest("POST", "/api/cart-sessions", {
-            storeId: import.meta.env.VITE_SHOPIFY_STORE_ID || "demo-store-id", 
-            customerId: import.meta.env.VITE_SHOPIFY_CUSTOMER_ID || "demo-customer",
+            storeId, 
+            customerId,
             cartToken: cartTokenValue
           });
           const session = await response.json();
@@ -90,15 +93,6 @@ export default function CartDrawer() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold" data-testid="cart-title">Your Cart</h2>
               <div className="flex items-center space-x-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={resetDemoCart}
-                  className="text-primary-foreground hover:bg-primary/80 text-xs"
-                  data-testid="button-reset-cart"
-                >
-                  Reset Demo
-                </Button>
                 <Button 
                   variant="ghost" 
                   size="sm" 
