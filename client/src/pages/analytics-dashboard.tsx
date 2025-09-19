@@ -311,15 +311,15 @@ export default function AnalyticsDashboard() {
     {
       title: "Total Revenue Impact",
       value: analyticsData ? formatCurrency(analyticsData.totalRevenueImpact || 0) : "Loading...",
-      change: "+15.2%", // Would be calculated from historical data
+      change: "N/A", // Will be calculated from historical data
       trend: "up" as const,
       icon: DollarSign,
       color: "text-green-500"
     },
     {
       title: "Campaign ROI",
-      value: "340%", // Would be calculated from campaign data
-      change: "+23.8%",
+      value: "N/A", // Will be calculated from campaign data
+      change: "N/A",
       trend: "up" as const,
       icon: TrendingUp,
       color: "text-green-500"
@@ -327,7 +327,7 @@ export default function AnalyticsDashboard() {
     {
       title: "Conversion Rate",
       value: analyticsData ? `${(analyticsData.conversionRate || 0).toFixed(1)}%` : "Loading...",
-      change: "+4.2%",
+      change: "N/A",
       trend: "up" as const,
       icon: Target,
       color: "text-blue-500"
@@ -335,7 +335,7 @@ export default function AnalyticsDashboard() {
     {
       title: "Average Order Value",
       value: analyticsData ? formatCurrency(analyticsData.averageOrderValue || 0) : "Loading...",
-      change: "+8.7%",
+      change: "N/A",
       trend: "up" as const,
       icon: ShoppingCart,
       color: "text-green-500"
@@ -347,50 +347,28 @@ export default function AnalyticsDashboard() {
     return campaignFilter === "all" || campaign.status === campaignFilter;
   }).map((campaign: CampaignData) => ({
     ...campaign,
-    impressions: Math.floor(Math.random() * 50000) + 10000, // Mock data for now
-    clicks: Math.floor(Math.random() * 5000) + 1000,
-    conversions: Math.floor(Math.random() * 1000) + 100,
-    revenue: formatCurrency(Math.floor(Math.random() * 500000) + 100000),
-    spend: formatCurrency(Math.floor(Math.random() * 100000) + 20000),
-    roi: calculateROI(400000, 80000),
-    ctr: calculatePercentage(3000, 40000),
-    conversionRate: calculatePercentage(500, 3000)
+    // Real metrics will be populated from Shopify analytics integration
+    impressions: 0,
+    clicks: 0,
+    conversions: 0,
+    revenue: formatCurrency(0),
+    spend: formatCurrency(0),
+    roi: 0,
+    ctr: 0,
+    conversionRate: 0
   }));
 
-  // Mock top products for now (would come from analytics)
-  const topProducts = [
-    {
-      name: "Premium Face Serum",
-      revenue: "PKR 450,000",
-      orders: 234,
-      conversionRate: "34.2%",
-      averageDiscount: "25%"
-    },
-    {
-      name: "Luxury Lipstick Set",
-      revenue: "PKR 380,000", 
-      orders: 189,
-      conversionRate: "28.7%",
-      averageDiscount: "30%"
-    },
-    {
-      name: "Skincare Bundle Pack",
-      revenue: "PKR 320,000",
-      orders: 156,
-      conversionRate: "31.5%",
-      averageDiscount: "35%"
-    }
-  ];
+  // Top products will be populated from real Shopify analytics data
+  const topProducts: Array<{
+    name: string;
+    revenue: string;
+    orders: number;
+    conversionRate: string;
+    averageDiscount: string;
+  }> = [];
 
-  // Mock monthly trends for now (would come from analytics)
-  const monthlyTrends: MonthlyTrend[] = [
-    { month: "Jan", revenue: 1200000, orders: 580, campaigns: campaigns?.length || 8 },
-    { month: "Feb", revenue: 1450000, orders: 720, campaigns: campaigns?.length || 10 },
-    { month: "Mar", revenue: 1680000, orders: 834, campaigns: campaigns?.length || 12 },
-    { month: "Apr", revenue: 2100000, orders: 1024, campaigns: campaigns?.length || 15 },
-    { month: "May", revenue: 2450000, orders: 1247, campaigns: campaigns?.length || 18 },
-    { month: "Jun", revenue: 2680000, orders: 1389, campaigns: campaigns?.length || 16 }
-  ];
+  // Monthly trends will be populated from real Shopify analytics data
+  const monthlyTrends: MonthlyTrend[] = [];
 
   return (
     <div className="flex min-h-screen bg-background">

@@ -116,7 +116,7 @@ export default function AdminDashboard() {
     {
       title: "Total Revenue Impact",
       value: analyticsData ? formatCurrency(analyticsData.totalRevenueImpact || 0) : "Loading...",
-      change: "+15.2%", // This would come from analytics comparison
+      change: "N/A", // Will come from analytics comparison
       trend: "up" as const,
       icon: DollarSign,
       description: "Last 30 days vs previous period"
@@ -124,7 +124,7 @@ export default function AdminDashboard() {
     {
       title: "Active Campaigns",
       value: campaignsData ? campaignsData.filter((c: any) => c.status === 'active').length.toString() : "Loading...",
-      change: "+3",
+      change: "N/A",
       trend: "up" as const, 
       icon: Target,
       description: "Currently running promotions"
@@ -132,7 +132,7 @@ export default function AdminDashboard() {
     {
       title: "Conversion Rate",
       value: analyticsData ? `${(analyticsData.conversionRate || 0).toFixed(1)}%` : "Loading...",
-      change: "+4.2%",
+      change: "N/A",
       trend: "up" as const,
       icon: TrendingUp,
       description: "Campaign-driven conversions"
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
     {
       title: "Average Order Value",
       value: analyticsData ? formatCurrency(analyticsData.averageOrderValue || 0) : "Loading...",
-      change: "+8.7%",
+      change: "N/A",
       trend: "up" as const, 
       icon: ShoppingCart,
       description: "With active promotions"
@@ -155,27 +155,13 @@ export default function AdminDashboard() {
     conversions: 0 // This would come from analytics
   })) : [];
 
-  // Mock top performing products for now (would be calculated from analytics)
-  const topPerformingProducts = [
-    {
-      name: "Premium Face Serum",
-      revenue: "PKR 450,000",
-      conversions: 234,
-      discount: "25% off"
-    },
-    {
-      name: "Luxury Lipstick Set", 
-      revenue: "PKR 380,000",
-      conversions: 189,
-      discount: "Buy 2 Get 1"
-    },
-    {
-      name: "Skincare Bundle",
-      revenue: "PKR 320,000", 
-      conversions: 156,
-      discount: "30% off"
-    }
-  ];
+  // Top performing products will be calculated from real Shopify analytics
+  const topPerformingProducts: Array<{
+    name: string;
+    revenue: string;
+    conversions: number;
+    discount: string;
+  }> = [];
 
   const isLoading = analyticsLoading || campaignsLoading;
 
