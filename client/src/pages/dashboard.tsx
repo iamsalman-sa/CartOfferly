@@ -34,7 +34,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4">
+    <div className="min-h-screen bg-black text-white dark p-4">
       {/* Header Section */}
       <div className="max-w-4xl mx-auto mb-8">
         <Card className="shadow-lg border border-border">
