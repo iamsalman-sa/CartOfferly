@@ -37,6 +37,7 @@ import {
   Palette
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Mock store ID
 const STORE_ID = "demo-store-id";
@@ -425,6 +426,7 @@ export default function SeasonalPromotions() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<any>(null);
   const [previewingPromotion, setPreviewingPromotion] = useState<any>(null);
+  const [selectedPromotions, setSelectedPromotions] = useState<string[]>([]);
   const { toast } = useToast();
 
   // Fetch real seasonal promotions data
@@ -479,6 +481,115 @@ export default function SeasonalPromotions() {
 
   const handleCreatePromotion = (data: SeasonalPromotionFormData) => {
     createPromotionMutation.mutate(data);
+  };
+
+  // Bulk action mutations
+  const bulkActivateMutation = useMutation({
+    mutationFn: async (promotionIds: string[]) => {
+      const promises = promotionIds.map(id => 
+        apiRequest("PATCH", `/api/seasonal-promotions/${id}/activate`)
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: `${selectedPromotions.length} promotions activated successfully`,
+      });
+      setSelectedPromotions([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'seasonal-promotions'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to activate promotions",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkPauseMutation = useMutation({
+    mutationFn: async (promotionIds: string[]) => {
+      const promises = promotionIds.map(id => 
+        apiRequest("PATCH", `/api/seasonal-promotions/${id}/deactivate`)
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: `${selectedPromotions.length} promotions paused successfully`,
+      });
+      setSelectedPromotions([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'seasonal-promotions'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to pause promotions",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (promotionIds: string[]) => {
+      const promises = promotionIds.map(id => 
+        apiRequest("DELETE", `/api/seasonal-promotions/${id}`)
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: `${selectedPromotions.length} promotions deleted successfully`,
+      });
+      setSelectedPromotions([]);
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'seasonal-promotions'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to delete promotions",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Helper functions for bulk actions
+  const handleSelectPromotion = (promotionId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedPromotions(prev => [...prev, promotionId]);
+    } else {
+      setSelectedPromotions(prev => prev.filter(id => id !== promotionId));
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedPromotions(promotions.map((p: any) => p.id));
+    } else {
+      setSelectedPromotions([]);
+    }
+  };
+
+  const handleBulkAction = (action: 'activate' | 'pause' | 'delete') => {
+    if (selectedPromotions.length === 0) {
+      toast({ title: "No promotions selected", variant: "destructive" });
+      return;
+    }
+
+    switch (action) {
+      case 'activate':
+        bulkActivateMutation.mutate(selectedPromotions);
+        break;
+      case 'pause':
+        bulkPauseMutation.mutate(selectedPromotions);
+        break;
+      case 'delete':
+        bulkDeleteMutation.mutate(selectedPromotions);
+        break;
+    }
   };
 
   return (
@@ -553,6 +664,68 @@ export default function SeasonalPromotions() {
             </CardContent>
           </Card>
 
+          {/* Bulk Actions */}
+          {promotions.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <Checkbox
+                      id="select-all-promotions"
+                      checked={selectedPromotions.length === promotions.length && promotions.length > 0}
+                      onCheckedChange={handleSelectAll}
+                      data-testid="checkbox-select-all-promotions"
+                    />
+                    <label htmlFor="select-all-promotions" className="text-sm font-medium">
+                      Select All ({promotions.length} promotions)
+                    </label>
+                    {selectedPromotions.length > 0 && (
+                      <Badge variant="secondary">
+                        {selectedPromotions.length} selected
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {selectedPromotions.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBulkAction('activate')}
+                        disabled={bulkActivateMutation.isPending}
+                        data-testid="button-bulk-activate"
+                      >
+                        <Play className="w-4 h-4 mr-1" />
+                        Activate
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBulkAction('pause')}
+                        disabled={bulkPauseMutation.isPending}
+                        data-testid="button-bulk-pause"
+                      >
+                        <Pause className="w-4 h-4 mr-1" />
+                        Pause
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleBulkAction('delete')}
+                        disabled={bulkDeleteMutation.isPending}
+                        data-testid="button-bulk-delete"
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Promotions List */}
           <div className="space-y-4">
             {isLoading ? (
@@ -599,18 +772,31 @@ export default function SeasonalPromotions() {
               </Card>
             ) : (promotions as any[])?.length > 0 ? (
               (promotions as any[]).map((promotion: any) => (
-              <Card key={promotion.id} className="card-hover" data-testid={`promotion-card-${promotion.id}`}>
+              <Card 
+                key={promotion.id} 
+                className={cn(
+                  "card-hover",
+                  selectedPromotions.includes(promotion.id) && "ring-2 ring-primary/50 bg-primary/5"
+                )}
+                data-testid={`promotion-card-${promotion.id}`}
+              >
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-3">
-                        <ThemeIcon theme={promotion.theme} />
-                        <h3 className="text-lg font-medium text-foreground">{promotion.name}</h3>
-                        <StatusBadge isActive={promotion.isActive} />
-                        <Badge variant="secondary" className="capitalize">
-                          {promotion.theme.replace('_', ' ')}
-                        </Badge>
-                      </div>
+                    <div className="flex items-center space-x-3 flex-1">
+                      <Checkbox
+                        checked={selectedPromotions.includes(promotion.id)}
+                        onCheckedChange={(checked) => handleSelectPromotion(promotion.id, !!checked)}
+                        data-testid={`checkbox-promotion-${promotion.id}`}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-3">
+                          <ThemeIcon theme={promotion.theme} />
+                          <h3 className="text-lg font-medium text-foreground">{promotion.name}</h3>
+                          <StatusBadge isActive={promotion.isActive} />
+                          <Badge variant="secondary" className="capitalize">
+                            {promotion.theme.replace('_', ' ')}
+                          </Badge>
+                        </div>
                       
                       <div 
                         className="rounded-lg p-3 mb-3 text-sm"
@@ -641,6 +827,7 @@ export default function SeasonalPromotions() {
                             {new Date(promotion.createdAt).toLocaleDateString()}
                           </span>
                         </div>
+                      </div>
                       </div>
                     </div>
                     
