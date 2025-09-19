@@ -11,6 +11,7 @@ import { Link } from "wouter";
 
 export default function Dashboard() {
   const [timerDuration, setTimerDuration] = useState("25");
+  const [customDuration, setCustomDuration] = useState("");
   const [celebrationEnabled, setCelebrationEnabled] = useState(true);
   const [timerEnabled, setTimerEnabled] = useState(true);
   const [bundlesExcluded, setBundlesExcluded] = useState(true);
@@ -25,12 +26,14 @@ export default function Dashboard() {
 
   const handleSaveSettings = () => {
     // Implementation would save settings to backend
+    const finalDuration = timerDuration === "custom" ? customDuration : timerDuration;
     console.log("Settings saved:", {
-      timerDuration,
+      timerDuration: finalDuration,
       celebrationEnabled,
       timerEnabled,
       bundlesExcluded,
     });
+    alert(`Settings saved successfully!\nTimer Duration: ${finalDuration} minutes\nCelebration: ${celebrationEnabled ? 'Enabled' : 'Disabled'}\nTimer: ${timerEnabled ? 'Enabled' : 'Disabled'}\nBundles Excluded: ${bundlesExcluded ? 'Yes' : 'No'}`);
   };
 
   return (
@@ -306,8 +309,23 @@ export default function Dashboard() {
                       <SelectItem value="25">25 minutes</SelectItem>
                       <SelectItem value="20">20 minutes</SelectItem>
                       <SelectItem value="15">15 minutes</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
+                  {timerDuration === "custom" && (
+                    <div className="mt-2">
+                      <Input
+                        type="number"
+                        placeholder="Enter minutes"
+                        value={customDuration}
+                        onChange={(e) => setCustomDuration(e.target.value)}
+                        className="w-full"
+                        data-testid="custom-duration-input"
+                        min="1"
+                        max="120"
+                      />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center justify-between">
