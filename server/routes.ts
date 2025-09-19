@@ -311,13 +311,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { storeId } = req.params;
       const rewardHistory = await storage.getRewardHistoryByStore(storeId);
+      const campaigns = await storage.getActiveCampaignsByStore(storeId);
+      
+      // Calculate real analytics from available data
+      const totalRewardsUnlocked = rewardHistory.length;
+      const milestonesHit = rewardHistory.filter(r => r.isRedeemed).length;
+      
+      // Calculate conversion rate based on redeemed vs total rewards
+      const conversionRate = totalRewardsUnlocked > 0 ? 
+        (milestonesHit / totalRewardsUnlocked * 100) : 0;
+      
+      // Calculate average order value from reward values
+      const totalRewardValue = rewardHistory.reduce((sum: number, reward) => {
+        return sum + parseFloat(reward.rewardValue || '0');
+      }, 0);
+      const averageOrderValue = milestonesHit > 0 ? (totalRewardValue / milestonesHit) : 0;
+      
+      // Calculate total revenue impact from campaigns
+      const totalRevenueImpact = campaigns.reduce((sum: number, campaign) => {
+        const usageCount = campaign.usageCount || 0;
+        const minOrderValue = parseFloat(campaign.minimumOrderValue || '0');
+        const campaignRevenue = usageCount * minOrderValue;
+        return sum + campaignRevenue;
+      }, 0);
       
       const analytics = {
-        totalRewardsUnlocked: rewardHistory.length,
-        conversionRate: 23.5, // This would be calculated based on actual data
-        averageOrderValue: 4850,
-        milestonesHit: rewardHistory.filter(r => r.isRedeemed).length,
-        totalRevenueImpact: 0, // Can be computed from reward history data or set initially
+        totalRewardsUnlocked,
+        conversionRate: parseFloat(conversionRate.toFixed(1)),
+        averageOrderValue: Math.round(averageOrderValue),
+        milestonesHit,
+        totalRevenueImpact: Math.round(totalRevenueImpact),
       };
       
       res.json(analytics);
