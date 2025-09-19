@@ -106,9 +106,9 @@ export default function Dashboard() {
               </Link>
             </div>
             
-            <div className="mt-6 p-4 bg-white/50 dark:bg-black/20 rounded-lg border border-purple-200 dark:border-purple-800">
+            <div className="mt-6 p-4 bg-black/20 dark:bg-black/20 rounded-lg border border-purple-200 dark:border-purple-800">
               <h3 className="font-semibold text-foreground mb-2">✨ New Admin Features Available:</h3>
-              <ul className="text-sm text-gray-700 space-y-1">
+              <ul className="text-sm text-foreground space-y-1">
                 <li>• Create & manage discount campaigns (BOGO, percentage, fixed amount)</li>
                 <li>• Design attractive product bundles with custom pricing</li>
                 <li>• Schedule seasonal promotions (Eid, Ramadan, Valentine's, etc.)</li>
