@@ -13,12 +13,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Play, Pause, Copy, Trash2, Edit, BarChart3, Settings, Users, Calendar, Gift, Truck, Target, AlertTriangle, Search, Package } from "lucide-react";
+import { Plus, Play, Pause, Copy, Trash2, Edit, BarChart3, Settings, Users, Calendar, Gift, Truck, Target, AlertTriangle, Search, Package, CheckSquare, Square } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import AdminSidebar from "@/components/admin-sidebar";
+import { cn } from "@/lib/utils";
 import type { Milestone } from "@shared/schema";
 
 const STORE_ID = "demo-store-id";
@@ -59,6 +62,8 @@ export default function MilestoneManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [duplicateDialog, setDuplicateDialog] = useState<{ open: boolean; milestone: Milestone | null }>({ open: false, milestone: null });
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; milestone: Milestone | null }>({ open: false, milestone: null });
+  const [selectedMilestones, setSelectedMilestones] = useState<string[]>([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
   
   const { toast } = useToast();
 
@@ -81,6 +86,55 @@ export default function MilestoneManagement() {
     queryKey: ['/api/milestones', showStats, 'stats'],
     queryFn: () => apiRequest("GET", `/api/milestones/${showStats}/stats`).then(res => res.json()),
     enabled: !!showStats,
+  });
+
+  // Bulk actions
+  const bulkActivateMutation = useMutation({
+    mutationFn: async (milestoneIds: string[]) => {
+      await Promise.all(milestoneIds.map(id => 
+        apiRequest("POST", `/api/milestones/${id}/resume`, { modifiedBy: "admin" })
+      ));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      setSelectedMilestones([]);
+      toast({ title: "Milestones activated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error activating milestones", variant: "destructive" });
+    }
+  });
+
+  const bulkPauseMutation = useMutation({
+    mutationFn: async (milestoneIds: string[]) => {
+      await Promise.all(milestoneIds.map(id => 
+        apiRequest("POST", `/api/milestones/${id}/pause`, { modifiedBy: "admin" })
+      ));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      setSelectedMilestones([]);
+      toast({ title: "Milestones paused successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error pausing milestones", variant: "destructive" });
+    }
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (milestoneIds: string[]) => {
+      await Promise.all(milestoneIds.map(id => 
+        apiRequest("DELETE", `/api/milestones/${id}`)
+      ));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      setSelectedMilestones([]);
+      toast({ title: "Milestones deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error deleting milestones", variant: "destructive" });
+    }
   });
 
   // Form for creating/editing milestones
@@ -379,6 +433,42 @@ export default function MilestoneManagement() {
     );
   });
 
+  // Bulk action helpers
+  const handleSelectMilestone = (milestoneId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedMilestones([...selectedMilestones, milestoneId]);
+    } else {
+      setSelectedMilestones(selectedMilestones.filter(id => id !== milestoneId));
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedMilestones(filteredMilestones.map(m => m.id));
+    } else {
+      setSelectedMilestones([]);
+    }
+  };
+
+  const handleBulkAction = (action: 'activate' | 'pause' | 'delete') => {
+    if (selectedMilestones.length === 0) {
+      toast({ title: "No milestones selected", variant: "destructive" });
+      return;
+    }
+
+    switch (action) {
+      case 'activate':
+        bulkActivateMutation.mutate(selectedMilestones);
+        break;
+      case 'pause':
+        bulkPauseMutation.mutate(selectedMilestones);
+        break;
+      case 'delete':
+        bulkDeleteMutation.mutate(selectedMilestones);
+        break;
+    }
+  };
+
   const onSubmit = (data: MilestoneFormData) => {
     if (selectedMilestone) {
       updateMilestoneMutation.mutate({ id: selectedMilestone.id, data });
@@ -388,29 +478,93 @@ export default function MilestoneManagement() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Milestone Management</h1>
-          <p className="text-muted-foreground">Manage milestone rewards, conditions, and rules</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search milestones..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 w-64"
-              data-testid="input-search-milestones"
-            />
+    <div className="flex min-h-screen bg-background">
+      <AdminSidebar />
+      
+      <main className="flex-1 overflow-auto">
+        <div className="space-y-6 p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground" data-testid="milestone-management-title">
+                Milestone Management
+              </h1>
+              <p className="text-muted-foreground">
+                Manage milestone rewards, conditions, and rules
+              </p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Search milestones..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 w-64"
+                  data-testid="input-search-milestones"
+                />
+              </div>
+              <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-milestone">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Milestone
+              </Button>
+            </div>
           </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-milestone">
-            <Plus className="w-4 h-4 mr-2" />
-            Create Milestone
-          </Button>
-        </div>
-      </div>
+
+          {/* Bulk Actions Bar */}
+          {selectedMilestones.length > 0 && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <span className="text-sm font-medium">
+                      {selectedMilestones.length} milestone(s) selected
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedMilestones([])}
+                      data-testid="button-clear-selection"
+                    >
+                      Clear Selection
+                    </Button>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBulkAction('activate')}
+                      disabled={bulkActivateMutation.isPending}
+                      data-testid="button-bulk-activate"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Activate
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBulkAction('pause')}
+                      disabled={bulkPauseMutation.isPending}
+                      data-testid="button-bulk-pause"
+                    >
+                      <Pause className="w-4 h-4 mr-2" />
+                      Pause
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleBulkAction('delete')}
+                      disabled={bulkDeleteMutation.isPending}
+                      data-testid="button-bulk-delete"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
       {/* Status Filter Tabs */}
       <Tabs value={selectedStatus} onValueChange={(value: any) => setSelectedStatus(value)}>
@@ -464,11 +618,36 @@ export default function MilestoneManagement() {
             </Card>
           )
         ) : (
-          filteredMilestones.map((milestone) => (
-            <Card key={milestone.id} className="hover:shadow-lg transition-shadow">
+          <div className="space-y-4">
+            {/* Select All Checkbox */}
+            <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
+              <Checkbox
+                id="select-all"
+                checked={selectedMilestones.length === filteredMilestones.length && filteredMilestones.length > 0}
+                onCheckedChange={handleSelectAll}
+                data-testid="checkbox-select-all"
+              />
+              <label htmlFor="select-all" className="text-sm font-medium">
+                Select All ({filteredMilestones.length} milestones)
+              </label>
+            </div>
+
+            {filteredMilestones.map((milestone) => (
+            <Card 
+              key={milestone.id} 
+              className={cn(
+                "hover:shadow-lg transition-shadow",
+                selectedMilestones.includes(milestone.id) && "ring-2 ring-primary/50 bg-primary/5"
+              )}
+            >
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div className="flex items-center space-x-3">
+                    <Checkbox
+                      checked={selectedMilestones.includes(milestone.id)}
+                      onCheckedChange={(checked) => handleSelectMilestone(milestone.id, !!checked)}
+                      data-testid={`checkbox-milestone-${milestone.id}`}
+                    />
                     <div className="text-2xl">{milestone.icon}</div>
                     <div>
                       <CardTitle className="flex items-center space-x-2">
@@ -569,7 +748,8 @@ export default function MilestoneManagement() {
                 )}
               </CardContent>
             </Card>
-          ))
+          ))}
+          </div>
         )}
       </div>
 
@@ -1114,6 +1294,8 @@ export default function MilestoneManagement() {
         confirmText="Delete"
         cancelText="Cancel"
       />
+        </div>
+      </main>
     </div>
   );
 }
