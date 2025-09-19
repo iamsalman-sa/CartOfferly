@@ -29,12 +29,6 @@ const adminNavItems = [
     description: "Create & manage campaigns"
   },
   {
-    title: "Analytics",
-    href: "/admin/analytics", 
-    icon: BarChart3,
-    description: "Performance metrics"
-  },
-  {
     title: "Seasonal Promotions",
     href: "/admin/seasonal",
     icon: Calendar,
@@ -45,6 +39,12 @@ const adminNavItems = [
     href: "/admin/milestones",
     icon: Gift,
     description: "Cart reward milestones"
+  },
+  {
+    title: "Analytics",
+    href: "/admin/analytics", 
+    icon: BarChart3,
+    description: "Performance metrics"
   }
 ];
 
