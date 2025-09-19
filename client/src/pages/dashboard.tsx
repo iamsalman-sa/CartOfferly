@@ -21,7 +21,7 @@ export default function Dashboard() {
   // Get store ID from environment or localStorage for development
   const storeId = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
 
-  const { data: analytics } = useQuery({
+  const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ["/api/stores", storeId, "analytics"],
     enabled: !!storeId,
   });
@@ -393,7 +393,7 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm text-white">Conversion Rate</p>
                     <p className="text-xl font-bold text-green-600" data-testid="conversion-rate">
-                      +{(analytics as any)?.conversionRate || 23.5}%
+                      {analyticsLoading ? "Loading..." : `+${(analytics as any)?.conversionRate || 0}%`}
                     </p>
                   </div>
                   <TrendingUp className="text-green-600 text-xl" />
@@ -403,7 +403,7 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm text-white">Average Order Value</p>
                     <p className="text-xl font-bold text-blue-400" data-testid="avg-order-value">
-                      PKR {(analytics as any)?.averageOrderValue || 4850}
+                      {analyticsLoading ? "Loading..." : `PKR ${(analytics as any)?.averageOrderValue || 0}`}
                     </p>
                   </div>
                   <Coins className="text-blue-400 text-xl" />
@@ -413,7 +413,7 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm text-white">Milestones Hit</p>
                     <p className="text-xl font-bold text-purple-400" data-testid="milestones-hit">
-                      {(analytics as any)?.milestonesHit || 1247}
+                      {analyticsLoading ? "Loading..." : ((analytics as any)?.milestonesHit || 0)}
                     </p>
                   </div>
                   <Target className="text-purple-400 text-xl" />
