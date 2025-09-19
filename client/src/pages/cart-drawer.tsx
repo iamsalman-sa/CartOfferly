@@ -26,17 +26,22 @@ export default function CartDrawer() {
         // Create new cart session
         try {
           const cartTokenValue = nanoid();
-          const storeId = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
+          const storeId = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID') || 'development-store';
           const customerId = import.meta.env.VITE_SHOPIFY_CUSTOMER_ID || localStorage.getItem('SHOPIFY_CUSTOMER_ID') || 'development-customer';
           
-          const response = await apiRequest("POST", "/api/cart-sessions", {
+          const session = await apiRequest("POST", "/api/cart-sessions", {
             storeId, 
             customerId,
-            cartToken: cartTokenValue
+            cartToken: cartTokenValue,
+            currentValue: "0",
+            unlockedMilestones: [],
+            selectedFreeProducts: [],
+            isActive: true
           });
-          const session = await response.json();
-          token = session.cartToken; // Use cartToken, not id
-          localStorage.setItem('cartToken', token);
+          token = session.cartToken || cartTokenValue; // Use cartToken from response, fallback to generated value
+          if (token) {
+            localStorage.setItem('cartToken', token);
+          }
           console.log('Created cart session:', { sessionId: session.id, cartToken: session.cartToken, stored: token });
         } catch (error) {
           console.error('Failed to create cart session:', error);
@@ -44,7 +49,9 @@ export default function CartDrawer() {
         }
       }
       
-      setCartToken(token);
+      if (token) {
+        setCartToken(token);
+      }
     };
     
     initializeCart();
