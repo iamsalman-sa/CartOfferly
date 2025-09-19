@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Gift, TrendingUp, Target, Coins, Rocket, Settings, BarChart3, Tag, Calendar } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Gift, TrendingUp, Target, Coins, Rocket, Settings, BarChart3, Tag, Calendar, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Dashboard() {
@@ -15,6 +16,7 @@ export default function Dashboard() {
   const [celebrationEnabled, setCelebrationEnabled] = useState(true);
   const [timerEnabled, setTimerEnabled] = useState(true);
   const [bundlesExcluded, setBundlesExcluded] = useState(true);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   // Mock store ID for demo - in real app this would come from auth
   const storeId = "demo-store-id";
@@ -33,7 +35,11 @@ export default function Dashboard() {
       timerEnabled,
       bundlesExcluded,
     });
-    alert(`Settings saved successfully!\nTimer Duration: ${finalDuration} minutes\nCelebration: ${celebrationEnabled ? 'Enabled' : 'Disabled'}\nTimer: ${timerEnabled ? 'Enabled' : 'Disabled'}\nBundles Excluded: ${bundlesExcluded ? 'Yes' : 'No'}`);
+    setShowSuccessDialog(true);
+  };
+
+  const getFinalDuration = () => {
+    return timerDuration === "custom" ? customDuration : timerDuration;
   };
 
   return (
@@ -417,6 +423,49 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-white" />
+              </div>
+              <DialogTitle className="text-xl font-semibold">Settings Saved Successfully!</DialogTitle>
+            </div>
+            <DialogDescription className="mt-4 space-y-2 text-muted-foreground">
+              <div className="bg-muted p-4 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="font-medium">Timer Duration:</span>
+                  <span>{getFinalDuration()} minutes</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Celebration:</span>
+                  <span>{celebrationEnabled ? 'Enabled' : 'Disabled'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Timer:</span>
+                  <span>{timerEnabled ? 'Enabled' : 'Disabled'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Bundles Excluded:</span>
+                  <span>{bundlesExcluded ? 'Yes' : 'No'}</span>
+                </div>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end mt-6">
+            <Button 
+              onClick={() => setShowSuccessDialog(false)}
+              className="px-6"
+              data-testid="dialog-ok-button"
+            >
+              OK
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
