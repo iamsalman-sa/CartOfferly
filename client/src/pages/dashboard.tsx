@@ -108,7 +108,7 @@ export default function Dashboard() {
             
             <div className="mt-6 p-4 bg-white/50 dark:bg-black/20 rounded-lg border border-purple-200 dark:border-purple-800">
               <h3 className="font-semibold text-foreground mb-2">✨ New Admin Features Available:</h3>
-              <ul className="text-sm text-muted-foreground space-y-1">
+              <ul className="text-sm text-gray-700 space-y-1">
                 <li>• Create & manage discount campaigns (BOGO, percentage, fixed amount)</li>
                 <li>• Design attractive product bundles with custom pricing</li>
                 <li>• Schedule seasonal promotions (Eid, Ramadan, Valentine's, etc.)</li>
@@ -378,21 +378,21 @@ export default function Dashboard() {
                 <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                   <div>
                     <p className="text-sm text-muted-foreground">Average Order Value</p>
-                    <p className="text-xl font-bold text-blue-600" data-testid="avg-order-value">
+                    <p className="text-xl font-bold text-blue-400" data-testid="avg-order-value">
                       PKR {(analytics as any)?.averageOrderValue || 4850}
                     </p>
                   </div>
-                  <Coins className="text-blue-600 text-xl" />
+                  <Coins className="text-blue-400 text-xl" />
                 </div>
                 
                 <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                   <div>
                     <p className="text-sm text-muted-foreground">Milestones Hit</p>
-                    <p className="text-xl font-bold text-purple-600" data-testid="milestones-hit">
+                    <p className="text-xl font-bold text-purple-400" data-testid="milestones-hit">
                       {(analytics as any)?.milestonesHit || 1247}
                     </p>
                   </div>
-                  <Target className="text-purple-600 text-xl" />
+                  <Target className="text-purple-400 text-xl" />
                 </div>
               </div>
             </CardContent>
