@@ -37,6 +37,7 @@ const milestoneFormSchema = z.object({
   eligibleProducts: z.array(z.string()).default([]),
   excludeProducts: z.array(z.string()).default([]),
   enableProductSelection: z.boolean().default(false),
+  includeBundles: z.boolean().default(true),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   usageLimit: z.number().optional(),
@@ -100,6 +101,7 @@ export default function MilestoneManagement() {
       eligibleProducts: [],
       excludeProducts: [],
       enableProductSelection: false,
+      includeBundles: true,
     },
   });
 
@@ -124,6 +126,10 @@ export default function MilestoneManagement() {
         displayOrder: data.displayOrder || 1,
         icon: data.icon || "🎁",
         color: data.color || "#e91e63",
+        eligibleProducts: data.eligibleProducts || [],
+        excludeProducts: data.excludeProducts || [],
+        enableProductSelection: data.enableProductSelection || false,
+        includeBundles: data.includeBundles ?? true,
         status: "active",
         isActive: true,
         createdBy: "admin",
@@ -173,6 +179,10 @@ export default function MilestoneManagement() {
         displayOrder: data.displayOrder,
         icon: data.icon,
         color: data.color,
+        eligibleProducts: data.eligibleProducts,
+        excludeProducts: data.excludeProducts,
+        enableProductSelection: data.enableProductSelection,
+        includeBundles: data.includeBundles,
         modifiedBy: "admin",
       });
     },
@@ -301,6 +311,10 @@ export default function MilestoneManagement() {
       displayOrder: milestone.displayOrder || 1,
       icon: milestone.icon || "🎁",
       color: milestone.color || "#e91e63",
+      eligibleProducts: milestone.eligibleProducts || [],
+      excludeProducts: milestone.excludeProducts || [],
+      enableProductSelection: milestone.enableProductSelection || false,
+      includeBundles: milestone.includeBundles ?? true,
     });
     setIsEditDialogOpen(true);
   };
@@ -805,7 +819,7 @@ export default function MilestoneManagement() {
                                 <FormControl>
                                   <Input 
                                     placeholder="Enter product IDs separated by commas"
-                                    value={field.value.join(", ")}
+                                    value={(field.value || []).join(", ")}
                                     onChange={(e) => field.onChange(e.target.value.split(",").map(id => id.trim()).filter(Boolean))}
                                     data-testid="input-eligible-products"
                                   />
@@ -827,7 +841,7 @@ export default function MilestoneManagement() {
                                 <FormControl>
                                   <Input 
                                     placeholder="Enter product IDs separated by commas"
-                                    value={field.value.join(", ")}
+                                    value={(field.value || []).join(", ")}
                                     onChange={(e) => field.onChange(e.target.value.split(",").map(id => id.trim()).filter(Boolean))}
                                     data-testid="input-exclude-products"
                                   />
@@ -836,6 +850,30 @@ export default function MilestoneManagement() {
                                   Specify product IDs that should be excluded from free product selection
                                 </FormDescription>
                                 <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="includeBundles"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                  <FormLabel className="text-base">
+                                    Include Bundles
+                                  </FormLabel>
+                                  <FormDescription>
+                                    Allow bundle products to be selected as free products. Uncheck to exclude all bundles.
+                                  </FormDescription>
+                                </div>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    data-testid="switch-include-bundles"
+                                  />
+                                </FormControl>
                               </FormItem>
                             )}
                           />

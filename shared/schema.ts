@@ -52,6 +52,7 @@ export const milestones = pgTable("milestones", {
   eligibleProducts: text("eligible_products").array(), // Array of product IDs eligible for free selection
   excludeProducts: text("exclude_products").array(), // Products to exclude
   enableProductSelection: boolean("enable_product_selection").default(false), // Enable/disable product selection
+  includeBundles: boolean("include_bundles").default(true), // Include/exclude bundles in product selection
   customerSegments: text("customer_segments").array().default(["all"]), // "all", "new", "returning", "vip"
   
   // Scheduling
