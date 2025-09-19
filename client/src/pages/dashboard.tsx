@@ -48,12 +48,12 @@ export default function Dashboard() {
                   <h1 className="text-2xl font-bold text-foreground" data-testid="app-title">
                     Premium Cart Rewards
                   </h1>
-                  <p className="text-muted-foreground">Advanced discount management system</p>
+                  <p className="text-white">Advanced discount management system</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2 bg-muted px-4 py-2 rounded-md">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-muted-foreground" data-testid="connection-status">
+                <span className="text-sm text-white" data-testid="connection-status">
                   Connected
                 </span>
               </div>
@@ -69,7 +69,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-foreground">🎯 Discount Management Hub</h2>
-                <p className="text-muted-foreground">Professional campaign & bundle management for Real Beauty</p>
+                <p className="text-white">Professional campaign & bundle management for Real Beauty</p>
               </div>
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 rounded-lg">
                 <span className="text-white font-semibold text-sm">NEW FEATURES</span>
@@ -138,7 +138,7 @@ export default function Dashboard() {
                     </div>
                     <h3 className="font-medium text-foreground">Milestone Tracking</h3>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-white">
                     Automatic progress tracking with PKR 2500, 3000, 4000, and 5000 thresholds
                   </p>
                 </div>
@@ -150,7 +150,7 @@ export default function Dashboard() {
                     </div>
                     <h3 className="font-medium text-foreground">Dynamic Rewards</h3>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-white">
                     Free delivery and progressive free product selection based on cart value
                   </p>
                 </div>
@@ -162,7 +162,7 @@ export default function Dashboard() {
                     </div>
                     <h3 className="font-medium text-foreground">Premium Animations</h3>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-white">
                     Celebration confetti and glow effects when milestones are achieved
                   </p>
                 </div>
@@ -174,7 +174,7 @@ export default function Dashboard() {
                     </div>
                     <h3 className="font-medium text-foreground">Urgency Timer</h3>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-white">
                     Countdown timer to create urgency and drive conversions
                   </p>
                 </div>
@@ -193,22 +193,22 @@ export default function Dashboard() {
               <div className="grid md:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-foreground">Prerequisites</h3>
-                  <ul className="space-y-2 text-sm">
+                  <ul className="space-y-2 text-sm text-white">
                     <li className="flex items-start space-x-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                      <span>Shopify Partner account</span>
+                      <span className="text-white">Shopify Partner account</span>
                     </li>
                     <li className="flex items-start space-x-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                      <span>Node.js 18+ installed</span>
+                      <span className="text-white">Node.js 18+ installed</span>
                     </li>
                     <li className="flex items-start space-x-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                      <span>Shopify CLI installed</span>
+                      <span className="text-white">Shopify CLI installed</span>
                     </li>
                     <li className="flex items-start space-x-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                      <span>Development store access</span>
+                      <span className="text-white">Development store access</span>
                     </li>
                   </ul>
                 </div>
@@ -216,12 +216,12 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-foreground">Quick Start</h3>
                   <div className="bg-muted rounded-lg p-4 font-mono text-xs space-y-2">
-                    <div className="text-muted-foreground"># Install dependencies</div>
-                    <div>npm install</div>
-                    <div className="text-muted-foreground"># Setup database</div>
-                    <div>npm run db:push</div>
-                    <div className="text-muted-foreground"># Start development</div>
-                    <div>npm run dev</div>
+                    <div className="text-white"># Install dependencies</div>
+                    <div className="text-white">npm install</div>
+                    <div className="text-white"># Setup database</div>
+                    <div className="text-white">npm run db:push</div>
+                    <div className="text-white"># Start development</div>
+                    <div className="text-white">npm run dev</div>
                   </div>
                 </div>
               </div>
@@ -236,7 +236,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <h4 className="font-medium text-foreground">Create Shopify App</h4>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-white">
                         Set up new app in Partner Dashboard with required scopes: write_products, write_orders, read_customers
                       </p>
                     </div>
@@ -248,7 +248,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <h4 className="font-medium text-foreground">Configure Environment</h4>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-white">
                         Add API keys, webhook URLs, and database connections to environment variables
                       </p>
                     </div>
@@ -260,7 +260,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <h4 className="font-medium text-foreground">Install Theme Extension</h4>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-white">
                         Deploy cart drawer extension to handle milestone tracking and UI components
                       </p>
                     </div>
@@ -272,7 +272,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <h4 className="font-medium text-foreground">Test & Deploy</h4>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-white">
                         Test milestone functionality, timer behavior, and free product selection before production deployment
                       </p>
                     </div>
@@ -367,7 +367,7 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                   <div>
-                    <p className="text-sm text-muted-foreground">Conversion Rate</p>
+                    <p className="text-sm text-white">Conversion Rate</p>
                     <p className="text-xl font-bold text-green-600" data-testid="conversion-rate">
                       +{(analytics as any)?.conversionRate || 23.5}%
                     </p>
@@ -377,7 +377,7 @@ export default function Dashboard() {
                 
                 <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                   <div>
-                    <p className="text-sm text-muted-foreground">Average Order Value</p>
+                    <p className="text-sm text-white">Average Order Value</p>
                     <p className="text-xl font-bold text-blue-400" data-testid="avg-order-value">
                       PKR {(analytics as any)?.averageOrderValue || 4850}
                     </p>
@@ -387,7 +387,7 @@ export default function Dashboard() {
                 
                 <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
                   <div>
-                    <p className="text-sm text-muted-foreground">Milestones Hit</p>
+                    <p className="text-sm text-white">Milestones Hit</p>
                     <p className="text-xl font-bold text-purple-400" data-testid="milestones-hit">
                       {(analytics as any)?.milestonesHit || 1247}
                     </p>
