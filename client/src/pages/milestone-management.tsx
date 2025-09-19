@@ -54,7 +54,7 @@ const milestoneFormSchema = z.object({
 type MilestoneFormData = z.infer<typeof milestoneFormSchema>;
 
 export default function MilestoneManagement() {
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'paused' | 'deleted'>('active');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'paused'>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
@@ -72,11 +72,10 @@ export default function MilestoneManagement() {
     queryKey: ['/api/stores', STORE_ID, 'milestones', selectedStatus],
     queryFn: () => {
       const params = new URLSearchParams();
-      if (selectedStatus === 'all') {
-        params.set('includeDeleted', 'true');
-      } else {
+      if (selectedStatus !== 'all') {
         params.set('status', selectedStatus);
       }
+      // Note: By default, deleted milestones are excluded from all views
       return fetch(`/api/stores/${STORE_ID}/milestones?${params}`).then(res => res.json());
     },
   });
@@ -572,7 +571,6 @@ export default function MilestoneManagement() {
           <TabsTrigger value="all" data-testid="tab-all-milestones">All Milestones</TabsTrigger>
           <TabsTrigger value="active" data-testid="tab-active-milestones">Active</TabsTrigger>
           <TabsTrigger value="paused" data-testid="tab-paused-milestones">Paused</TabsTrigger>
-          <TabsTrigger value="deleted" data-testid="tab-deleted-milestones">Deleted</TabsTrigger>
         </TabsList>
       </Tabs>
 

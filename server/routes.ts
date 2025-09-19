@@ -384,8 +384,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // If status is provided as query param, split by comma
         statusFilter = String(status).split(',').map(s => s.trim());
       } else {
-        // Default: only show active and paused campaigns, exclude deleted ones
-        statusFilter = ['active', 'paused'];
+        // Default: show draft, active and paused campaigns, exclude deleted ones
+        statusFilter = ['draft', 'active', 'paused'];
       }
       
       const campaigns = await storage.getDiscountCampaignsByStore(storeId, statusFilter);

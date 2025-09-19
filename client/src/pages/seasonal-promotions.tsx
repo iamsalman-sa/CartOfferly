@@ -16,6 +16,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import AdminSidebar from "@/components/admin-sidebar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, 
   Calendar, 
@@ -43,15 +44,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 // Get store ID from environment or localStorage for development
 const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID') || 'demo-store-id';
 
-import { insertSeasonalPromotionSchema } from "@shared/schema";
-
-// Use shared schema for consistency with backend  
-const seasonalPromotionSchema = insertSeasonalPromotionSchema.omit({
-  id: true,
-  storeId: true,
-  createdAt: true
-}).extend({
+// Seasonal promotion form schema
+const seasonalPromotionSchema = z.object({
+  name: z.string().min(3, "Promotion name must be at least 3 characters"),
   theme: z.enum(["eid", "ramadan", "valentine", "summer", "winter", "black_friday", "christmas", "new_year"]),
+  bannerText: z.string().min(5, "Banner text must be at least 5 characters"),
+  bannerColor: z.string().default("#000000"),
+  textColor: z.string().default("#ffffff"),
+  autoActivate: z.boolean().default(false),
+  showBannerOnWebsite: z.boolean().default(true),
   activationDate: z.string().optional(),
   deactivationDate: z.string().optional(),
 });
@@ -448,6 +449,7 @@ function SeasonalPromotionForm({
 }
 
 export default function SeasonalPromotions() {
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'paused'>('active');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<any>(null);
   const [previewingPromotion, setPreviewingPromotion] = useState<any>(null);
@@ -455,9 +457,16 @@ export default function SeasonalPromotions() {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
-  // Fetch real seasonal promotions data
+  // Fetch seasonal promotions with status filter
   const { data: promotions = [], isLoading, isError } = useQuery({
-    queryKey: ['/api/stores', STORE_ID, 'seasonal-promotions'],
+    queryKey: ['/api/stores', STORE_ID, 'seasonal-promotions', selectedStatus],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (selectedStatus !== 'all') {
+        params.set('status', selectedStatus);
+      }
+      return fetch(`/api/stores/${STORE_ID}/seasonal-promotions?${params}`).then(res => res.json());
+    },
     enabled: !!STORE_ID,
   });
 
@@ -776,6 +785,15 @@ export default function SeasonalPromotions() {
             </Card>
           )}
 
+          {/* Status Filter Tabs */}
+          <Tabs value={selectedStatus} onValueChange={(value: any) => setSelectedStatus(value)}>
+            <TabsList>
+              <TabsTrigger value="all" data-testid="tab-all-promotions">All Promotions</TabsTrigger>
+              <TabsTrigger value="active" data-testid="tab-active-promotions">Active</TabsTrigger>
+              <TabsTrigger value="paused" data-testid="tab-paused-promotions">Paused</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           {/* Promotions List */}
           <div className="space-y-4">
             {isLoading ? (
@@ -936,7 +954,7 @@ export default function SeasonalPromotions() {
                   {!searchQuery.trim() && (
                     <Button onClick={() => setIsCreateDialogOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Create Your First Promotion
+                      Create Seasonal Promotion
                     </Button>
                   )}
                 </CardContent>

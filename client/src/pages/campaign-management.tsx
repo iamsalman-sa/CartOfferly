@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import AdminSidebar from "@/components/admin-sidebar";
@@ -34,13 +35,15 @@ import {
   Eye,
   Save,
   X,
-  TrendingUp
+  TrendingUp,
+  CheckSquare,
+  Square
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
 
 // Get store ID from environment or localStorage for development
-const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
+const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID') || 'demo-store-id';
 
 // Campaign form schema
 const campaignSchema = z.object({
@@ -253,7 +256,10 @@ function CampaignForm({
                     min="1"
                     max="10"
                     {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value))}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      field.onChange(isNaN(value) ? 1 : value);
+                    }}
                     data-testid="input-priority"
                   />
                 </FormControl>
@@ -294,7 +300,10 @@ function CampaignForm({
                     type="number"
                     placeholder="e.g., 1000"
                     {...field}
-                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      field.onChange(e.target.value && !isNaN(value) ? value : undefined);
+                    }}
                     data-testid="input-usage-limit"
                   />
                 </FormControl>
@@ -378,6 +387,8 @@ export default function CampaignManagement() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<any>(null);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
   const { toast } = useToast();
 
   // Fetch campaigns data

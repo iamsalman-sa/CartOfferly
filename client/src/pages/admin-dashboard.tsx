@@ -292,7 +292,7 @@ export default function AdminDashboard() {
                     <SelectItem value="7d">Last 7 days</SelectItem>
                     <SelectItem value="1w">Last week</SelectItem>
                     <SelectItem value="30d">Last 30 days</SelectItem>
-                    <SelectItem value="1m">Last month</SelectItem>
+                    <SelectItem value="3m">Last 3 months</SelectItem>
                     <SelectItem value="90d">Last 90 days</SelectItem>
                     <SelectItem value="1y">Last year</SelectItem>
                     <SelectItem value="custom">Custom range</SelectItem>
