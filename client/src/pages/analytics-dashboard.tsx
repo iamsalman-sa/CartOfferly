@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminSidebar from "@/components/admin-sidebar";
@@ -18,6 +19,7 @@ import {
   Calendar,
   Download,
   Filter,
+  CalendarDays,
   Eye,
   DollarSign,
   Users,
@@ -145,12 +147,46 @@ export default function AnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState("30d");
   const [campaignFilter, setCampaignFilter] = useState("all");
   const [showFilter, setShowFilter] = useState(false);
+  const [showCustomDateRange, setShowCustomDateRange] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const { toast } = useToast();
+
+  // Date range utility functions
+  const getDateRangeLabel = (range: string) => {
+    const ranges = {
+      'today': 'Today',
+      'yesterday': 'Yesterday',
+      '7d': 'Last 7 days',
+      '1w': 'Last week',
+      '30d': 'Last 30 days',
+      '1m': 'Last month',
+      '90d': 'Last 90 days',
+      '1y': 'Last year',
+      'custom': 'Custom range'
+    };
+    return ranges[range as keyof typeof ranges] || range;
+  };
+
+  const handleDateRangeChange = (range: string) => {
+    setTimeRange(range);
+    if (range === 'custom') {
+      setShowCustomDateRange(true);
+    } else {
+      setShowCustomDateRange(false);
+      setCustomStartDate("");
+      setCustomEndDate("");
+    }
+  };
 
   // CSV utility functions
   const escapeCsvCell = (value: any): string => {
     if (value === null || value === undefined) return '""';
-    const stringValue = String(value);
+    let stringValue = String(value);
+    // Prevent CSV formula injection by prefixing risky characters
+    if (stringValue.match(/^[=+@-]/)) {
+      stringValue = "'" + stringValue;
+    }
     // Escape double quotes by doubling them, then wrap in quotes
     const escaped = stringValue.replace(/"/g, '""');
     return `"${escaped}"`;
@@ -387,17 +423,44 @@ export default function AnalyticsDashboard() {
               </p>
             </div>
             <div className="flex items-center space-x-3">
-              <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-[150px]" data-testid="select-time-range">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7d">Last 7 days</SelectItem>
-                  <SelectItem value="30d">Last 30 days</SelectItem>
-                  <SelectItem value="90d">Last 90 days</SelectItem>
-                  <SelectItem value="1y">Last year</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center space-x-2">
+                <Select value={timeRange} onValueChange={handleDateRangeChange}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-time-range">
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Select date range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="7d">Last 7 days</SelectItem>
+                    <SelectItem value="1w">Last week</SelectItem>
+                    <SelectItem value="30d">Last 30 days</SelectItem>
+                    <SelectItem value="1m">Last month</SelectItem>
+                    <SelectItem value="90d">Last 90 days</SelectItem>
+                    <SelectItem value="1y">Last year</SelectItem>
+                    <SelectItem value="custom">Custom range</SelectItem>
+                  </SelectContent>
+                </Select>
+                {showCustomDateRange && (
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="w-40"
+                      data-testid="input-start-date"
+                    />
+                    <span className="text-muted-foreground">to</span>
+                    <Input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="w-40"
+                      data-testid="input-end-date"
+                    />
+                  </div>
+                )}
+              </div>
               <Button 
                 variant="outline" 
                 size="sm" 

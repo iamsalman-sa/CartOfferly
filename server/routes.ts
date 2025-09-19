@@ -377,7 +377,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stores/:storeId/campaigns", async (req, res) => {
     try {
       const { storeId } = req.params;
-      const campaigns = await storage.getDiscountCampaignsByStore(storeId);
+      const { status } = req.query;
+      
+      let statusFilter: string[] | undefined;
+      if (status) {
+        // If status is provided as query param, split by comma
+        statusFilter = String(status).split(',').map(s => s.trim());
+      } else {
+        // Default: only show active and paused campaigns, exclude deleted ones
+        statusFilter = ['active', 'paused'];
+      }
+      
+      const campaigns = await storage.getDiscountCampaignsByStore(storeId, statusFilter);
       res.json(campaigns);
     } catch (error) {
       res.status(500).json({ message: "Error fetching campaigns", error });

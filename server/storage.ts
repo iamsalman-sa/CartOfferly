@@ -17,6 +17,7 @@ import {
   type DiscountAnalytics, type InsertDiscountAnalytics
 } from "@shared/schema";
 import { db } from "./db";
+import { inArray } from "drizzle-orm";
 import { eq, and, gte, lte, desc, or, sql, isNull } from "drizzle-orm";
 
 export interface IStorage {
@@ -445,9 +446,18 @@ export class DatabaseStorage implements IStorage {
     return newCampaign;
   }
 
-  async getDiscountCampaignsByStore(storeId: string): Promise<DiscountCampaign[]> {
+  async getDiscountCampaignsByStore(storeId: string, statusFilter?: string[]): Promise<DiscountCampaign[]> {
+    let whereCondition = eq(discountCampaigns.storeId, storeId);
+    
+    if (statusFilter && statusFilter.length > 0) {
+      whereCondition = and(
+        whereCondition,
+        inArray(discountCampaigns.status, statusFilter)
+      ) as any;
+    }
+    
     return await db.select().from(discountCampaigns)
-      .where(eq(discountCampaigns.storeId, storeId))
+      .where(whereCondition)
       .orderBy(desc(discountCampaigns.createdAt));
   }
 

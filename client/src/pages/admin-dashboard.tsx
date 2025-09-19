@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -15,6 +17,7 @@ import {
   ShoppingCart, 
   DollarSign,
   Calendar,
+  CalendarDays,
   Eye,
   MoreHorizontal,
   Plus,
@@ -80,6 +83,9 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function AdminDashboard() {
   const [timeRange, setTimeRange] = useState("30d");
+  const [showCustomDateRange, setShowCustomDateRange] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const { toast } = useToast();
 
   // Fetch analytics data
@@ -93,6 +99,98 @@ export default function AdminDashboard() {
     queryKey: ['/api/stores', STORE_ID, 'campaigns'],
     enabled: !!STORE_ID,
   });
+
+  // Date range utility functions
+  const handleDateRangeChange = (range: string) => {
+    setTimeRange(range);
+    if (range === 'custom') {
+      setShowCustomDateRange(true);
+    } else {
+      setShowCustomDateRange(false);
+      setCustomStartDate("");
+      setCustomEndDate("");
+    }
+  };
+
+  // Export dashboard data
+  const exportDashboardData = () => {
+    try {
+      const exportData = {
+        summary: {
+          totalRevenue: analyticsData?.totalRevenueImpact || 0,
+          conversionRate: analyticsData?.conversionRate || 0,
+          averageOrderValue: analyticsData?.averageOrderValue || 0,
+          totalRewardsUnlocked: analyticsData?.totalRewardsUnlocked || 0,
+          milestonesHit: analyticsData?.milestonesHit || 0,
+          generatedAt: new Date().toISOString(),
+          timeRange
+        },
+        campaigns: campaignsData || []
+      };
+
+      // Convert to CSV format
+      const csvRows = [
+        // Summary section
+        ['DASHBOARD SUMMARY', ''],
+        ['Generated on', new Date().toLocaleDateString()],
+        ['Time Range', timeRange],
+        ['', ''],
+        ['OVERVIEW METRICS', ''],
+        ['Metric', 'Value'],
+        ['Total Revenue Impact', `PKR ${exportData.summary.totalRevenue.toLocaleString()}`],
+        ['Conversion Rate', `${exportData.summary.conversionRate.toFixed(1)}%`],
+        ['Average Order Value', `PKR ${exportData.summary.averageOrderValue.toLocaleString()}`],
+        ['Total Rewards Unlocked', exportData.summary.totalRewardsUnlocked.toString()],
+        ['Milestones Hit', exportData.summary.milestonesHit.toString()],
+        ['', ''],
+        // Campaigns section
+        ['CAMPAIGNS', '', '', '', '', ''],
+        ['Name', 'Status', 'Type', 'Priority', 'Start Date', 'End Date'],
+        ...exportData.campaigns.map((campaign: any) => [
+          campaign.name || '',
+          campaign.status || '',
+          campaign.type || '',
+          campaign.priority || '',
+          campaign.startDate || '',
+          campaign.endDate || ''
+        ])
+      ];
+
+      const csvContent = csvRows.map(row => 
+        row.map(cell => {
+          let stringValue = String(cell);
+          // Prevent CSV formula injection by prefixing risky characters
+          if (stringValue.match(/^[=+@-]/)) {
+            stringValue = "'" + stringValue;
+          }
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }).join(',')
+      ).join('\n');
+
+      // Add BOM for proper Excel encoding
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `dashboard-export-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Export successful",
+        description: "Dashboard data has been exported to CSV",
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "There was an error exporting the dashboard data",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Refresh data mutation
   const refreshMutation = useMutation({
@@ -182,6 +280,44 @@ export default function AdminDashboard() {
               </p>
             </div>
             <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <Select value={timeRange} onValueChange={handleDateRangeChange}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-time-range">
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Select date range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="7d">Last 7 days</SelectItem>
+                    <SelectItem value="1w">Last week</SelectItem>
+                    <SelectItem value="30d">Last 30 days</SelectItem>
+                    <SelectItem value="1m">Last month</SelectItem>
+                    <SelectItem value="90d">Last 90 days</SelectItem>
+                    <SelectItem value="1y">Last year</SelectItem>
+                    <SelectItem value="custom">Custom range</SelectItem>
+                  </SelectContent>
+                </Select>
+                {showCustomDateRange && (
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="w-40"
+                      data-testid="input-start-date"
+                    />
+                    <span className="text-muted-foreground">to</span>
+                    <Input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="w-40"
+                      data-testid="input-end-date"
+                    />
+                  </div>
+                )}
+              </div>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -192,7 +328,12 @@ export default function AdminDashboard() {
                 <RefreshCw className={cn("mr-2 h-4 w-4", refreshMutation.isPending && "animate-spin")} />
                 Refresh
               </Button>
-              <Button variant="outline" size="sm" data-testid="button-export">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={exportDashboardData}
+                data-testid="button-export"
+              >
                 <Download className="mr-2 h-4 w-4" />
                 Export
               </Button>

@@ -54,7 +54,7 @@ const milestoneFormSchema = z.object({
 type MilestoneFormData = z.infer<typeof milestoneFormSchema>;
 
 export default function MilestoneManagement() {
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'paused' | 'deleted'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'paused' | 'deleted'>('active');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);

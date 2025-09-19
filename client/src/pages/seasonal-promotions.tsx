@@ -34,22 +34,24 @@ import {
   Eye,
   Save,
   X,
-  Palette
+  Palette,
+  Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 
 // Get store ID from environment or localStorage for development
-const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
+const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID') || 'demo-store-id';
 
-// Seasonal promotion schema
-const seasonalPromotionSchema = z.object({
-  name: z.string().min(3, "Promotion name must be at least 3 characters"),
+import { insertSeasonalPromotionSchema } from "@shared/schema";
+
+// Use shared schema for consistency with backend  
+const seasonalPromotionSchema = insertSeasonalPromotionSchema.omit({
+  id: true,
+  storeId: true,
+  createdAt: true
+}).extend({
   theme: z.enum(["eid", "ramadan", "valentine", "summer", "winter", "black_friday", "christmas", "new_year"]),
-  bannerText: z.string().min(5, "Banner text must be at least 5 characters"),
-  bannerColor: z.string().default("#000000"),
-  textColor: z.string().default("#ffffff"),
-  autoActivate: z.boolean().default(false),
   activationDate: z.string().optional(),
   deactivationDate: z.string().optional(),
 });
@@ -168,7 +170,8 @@ function SeasonalPromotionForm({
       bannerText: "",
       bannerColor: "#000000",
       textColor: "#ffffff",
-      autoActivate: false
+      autoActivate: false,
+      showBannerOnWebsite: true
     }
   });
 
@@ -386,6 +389,28 @@ function SeasonalPromotionForm({
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="showBannerOnWebsite"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <FormLabel className="text-base">Show Banner on Website</FormLabel>
+                <FormDescription>
+                  Display this promotional banner to website visitors when active
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  data-testid="switch-show-banner"
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+
         {/* Preview */}
         <div className="rounded-lg border border-border p-4">
           <h4 className="text-sm font-medium text-foreground mb-3">Preview</h4>
@@ -427,6 +452,7 @@ export default function SeasonalPromotions() {
   const [editingPromotion, setEditingPromotion] = useState<any>(null);
   const [previewingPromotion, setPreviewingPromotion] = useState<any>(null);
   const [selectedPromotions, setSelectedPromotions] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
   // Fetch real seasonal promotions data
@@ -556,6 +582,18 @@ export default function SeasonalPromotions() {
     },
   });
 
+  // Filter promotions based on search query
+  const filteredPromotions = (promotions as any[]).filter((promotion: any) => {
+    if (!searchQuery.trim()) return true;
+    
+    const searchTerm = searchQuery.toLowerCase();
+    return (
+      promotion.name?.toLowerCase().includes(searchTerm) ||
+      promotion.theme?.toLowerCase().includes(searchTerm) ||
+      promotion.bannerText?.toLowerCase().includes(searchTerm)
+    );
+  });
+
   // Helper functions for bulk actions
   const handleSelectPromotion = (promotionId: string, checked: boolean) => {
     if (checked) {
@@ -567,7 +605,7 @@ export default function SeasonalPromotions() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedPromotions(promotions.map((p: any) => p.id));
+      setSelectedPromotions(filteredPromotions.map((p: any) => p.id));
     } else {
       setSelectedPromotions([]);
     }
@@ -608,13 +646,24 @@ export default function SeasonalPromotions() {
                 Manage holiday and seasonal campaigns for Real Beauty
               </p>
             </div>
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button data-testid="button-create-seasonal-promotion">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Seasonal Promotion
-                </Button>
-              </DialogTrigger>
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search promotions..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-80 pl-9"
+                  data-testid="input-search-promotions"
+                />
+              </div>
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-create-seasonal-promotion">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Seasonal Promotion
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
                 <DialogHeader>
                   <DialogTitle>Create Seasonal Promotion</DialogTitle>
@@ -628,7 +677,8 @@ export default function SeasonalPromotions() {
                   isLoading={createPromotionMutation.isPending}
                 />
               </DialogContent>
-            </Dialog>
+              </Dialog>
+            </div>
           </div>
 
           {/* Theme Quick Actions */}
@@ -665,7 +715,7 @@ export default function SeasonalPromotions() {
           </Card>
 
           {/* Bulk Actions */}
-          {promotions.length > 0 && (
+          {filteredPromotions.length > 0 && (
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
@@ -770,8 +820,8 @@ export default function SeasonalPromotions() {
                   </Button>
                 </CardContent>
               </Card>
-            ) : (promotions as any[])?.length > 0 ? (
-              (promotions as any[]).map((promotion: any) => (
+            ) : filteredPromotions?.length > 0 ? (
+              filteredPromotions.map((promotion: any) => (
               <Card 
                 key={promotion.id} 
                 className={cn(
@@ -872,7 +922,26 @@ export default function SeasonalPromotions() {
                 </CardContent>
               </Card>
               ))
-            ) : null}
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">No promotions found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {searchQuery.trim() 
+                      ? `No promotions match "${searchQuery}". Try adjusting your search terms.`
+                      : "No seasonal promotions have been created yet."
+                    }
+                  </p>
+                  {!searchQuery.trim() && (
+                    <Button onClick={() => setIsCreateDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Your First Promotion
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {!isLoading && !isError && (promotions as any[])?.length === 0 && (

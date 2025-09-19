@@ -175,6 +175,7 @@ export const seasonalPromotions = pgTable("seasonal_promotions", {
   bannerColor: text("banner_color").default("#000000"),
   textColor: text("text_color").default("#ffffff"),
   autoActivate: boolean("auto_activate").default(false),
+  showBannerOnWebsite: boolean("show_banner_on_website").default(true),
   activationDate: timestamp("activation_date"),
   deactivationDate: timestamp("deactivation_date"),
   isActive: boolean("is_active").default(false),
