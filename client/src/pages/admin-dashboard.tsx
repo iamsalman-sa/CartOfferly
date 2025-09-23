@@ -125,7 +125,7 @@ export default function AdminDashboard() {
           generatedAt: new Date().toISOString(),
           timeRange
         },
-        campaigns: campaignsData || []
+        campaigns: (campaignsData as any[]) || []
       };
 
       // Convert to CSV format
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
         // Campaigns section
         ['CAMPAIGNS', '', '', '', '', ''],
         ['Name', 'Status', 'Type', 'Priority', 'Start Date', 'End Date'],
-        ...exportData.campaigns.map((campaign: any) => [
+        ...(exportData.campaigns || []).map((campaign: any) => [
           campaign.name || '',
           campaign.status || '',
           campaign.type || '',
