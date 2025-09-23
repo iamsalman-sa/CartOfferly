@@ -29,6 +29,11 @@ export default function CartDrawer() {
           const storeId = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
           const customerId = import.meta.env.VITE_SHOPIFY_CUSTOMER_ID || localStorage.getItem('SHOPIFY_CUSTOMER_ID');
           
+          if (!storeId || !customerId) {
+            console.error('Store ID and Customer ID are required for cart initialization');
+            return;
+          }
+          
           const session = await apiRequest("POST", "/api/cart-sessions", {
             storeId, 
             customerId,

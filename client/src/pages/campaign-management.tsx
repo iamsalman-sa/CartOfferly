@@ -383,6 +383,18 @@ function CampaignForm({
 }
 
 export default function CampaignManagement() {
+  // Early return if no store ID is configured
+  if (!STORE_ID) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Store Configuration Required</h2>
+          <p className="text-muted-foreground">Please configure your Shopify store ID to access campaign management.</p>
+        </div>
+      </div>
+    );
+  }
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
