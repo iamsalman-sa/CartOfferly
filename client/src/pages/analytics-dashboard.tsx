@@ -538,15 +538,15 @@ export default function AnalyticsDashboard() {
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
                       <div className="text-center">
-                        <p className="font-medium text-foreground">PKR 2.45M</p>
+                        <p className="font-medium text-foreground">PKR 0</p>
                         <p className="text-muted-foreground">This Month</p>
                       </div>
                       <div className="text-center">
-                        <p className="font-medium text-foreground">PKR 2.1M</p>
+                        <p className="font-medium text-foreground">PKR 0</p>
                         <p className="text-muted-foreground">Last Month</p>
                       </div>
                       <div className="text-center">
-                        <p className="font-medium text-green-500">+16.7%</p>
+                        <p className="font-medium text-green-500">0%</p>
                         <p className="text-muted-foreground">Growth</p>
                       </div>
                     </div>
@@ -568,25 +568,25 @@ export default function AnalyticsDashboard() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Impressions</span>
-                        <span className="font-medium">106,080</span>
+                        <span className="font-medium">0</span>
                       </div>
-                      <Progress value={100} className="h-2" />
+                      <Progress value={0} className="h-2" />
                       
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Clicks</span>
-                        <span className="font-medium">8,410 (7.9%)</span>
+                        <span className="font-medium">0 (0%)</span>
                       </div>
-                      <Progress value={79} className="h-2" />
+                      <Progress value={0} className="h-2" />
                       
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Conversions</span>
-                        <span className="font-medium">1,759 (20.9%)</span>
+                        <span className="font-medium">0 (0%)</span>
                       </div>
-                      <Progress value={21} className="h-2" />
+                      <Progress value={0} className="h-2" />
                       
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Revenue</span>
-                        <span className="font-medium text-green-500">PKR 1,060,000</span>
+                        <span className="font-medium text-green-500">PKR 0</span>
                       </div>
                     </div>
                   </CardContent>
@@ -603,23 +603,23 @@ export default function AnalyticsDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-4">
+                    <div className="rounded-lg bg-muted/10 border border-muted/20 p-4">
                       <div className="flex items-center space-x-2 mb-2">
-                        <TrendingUp className="h-4 w-4 text-green-500" />
-                        <span className="text-sm font-medium text-green-500">High Performance</span>
+                        <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground">No Data</span>
                       </div>
-                      <p className="text-sm text-foreground">
-                        BOGO campaigns are showing 23% higher conversion rates compared to percentage discounts
+                      <p className="text-sm text-muted-foreground">
+                        Connect to Shopify to see AI-powered insights and recommendations
                       </p>
                     </div>
                     
-                    <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4">
+                    <div className="rounded-lg bg-muted/10 border border-muted/20 p-4">
                       <div className="flex items-center space-x-2 mb-2">
-                        <Eye className="h-4 w-4 text-blue-500" />
-                        <span className="text-sm font-medium text-blue-500">Opportunity</span>
+                        <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground">No Data</span>
                       </div>
-                      <p className="text-sm text-foreground">
-                        Skincare products have 45% higher AOV when bundled together vs sold individually
+                      <p className="text-sm text-muted-foreground">
+                        Connect to Shopify to see performance insights
                       </p>
                     </div>
                     

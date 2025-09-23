@@ -393,7 +393,7 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm text-white">Conversion Rate</p>
                     <p className="text-xl font-bold text-green-600" data-testid="conversion-rate">
-                      {analyticsLoading ? "Loading..." : `+${(analytics as any)?.conversionRate || 0}%`}
+                      {(analytics as any)?.conversionRate || 0}%
                     </p>
                   </div>
                   <TrendingUp className="text-green-600 text-xl" />
@@ -403,7 +403,7 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm text-white">Average Order Value</p>
                     <p className="text-xl font-bold text-blue-400" data-testid="avg-order-value">
-                      {analyticsLoading ? "Loading..." : `PKR ${(analytics as any)?.averageOrderValue || 0}`}
+                      PKR {(analytics as any)?.averageOrderValue || 0}
                     </p>
                   </div>
                   <Coins className="text-blue-400 text-xl" />
@@ -413,7 +413,7 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm text-white">Milestones Hit</p>
                     <p className="text-xl font-bold text-purple-400" data-testid="milestones-hit">
-                      {analyticsLoading ? "Loading..." : ((analytics as any)?.milestonesHit || 0)}
+                      {(analytics as any)?.milestonesHit || 0}
                     </p>
                   </div>
                   <Target className="text-purple-400 text-xl" />

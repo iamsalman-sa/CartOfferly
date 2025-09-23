@@ -48,26 +48,8 @@ const adminNavItems = [
   }
 ];
 
-const quickStatsItems = [
-  {
-    title: "Active Campaigns",
-    value: "12",
-    icon: Target,
-    trend: "+3"
-  },
-  {
-    title: "Revenue Impact",
-    value: "PKR 2.4M",
-    icon: TrendingUp,
-    trend: "+15%"
-  },
-  {
-    title: "Conversions",
-    value: "1,247",
-    icon: Users,
-    trend: "+23%"
-  }
-];
+// Quick stats removed - requires real Shopify API integration
+const quickStatsItems: never[] = [];
 
 export default function AdminSidebar() {
   const [location] = useLocation();
@@ -89,28 +71,7 @@ export default function AdminSidebar() {
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="border-b border-sidebar-border px-6 py-4">
-        <h3 className="mb-3 text-sm font-medium text-muted-foreground">Quick Stats</h3>
-        <div className="space-y-2">
-          {quickStatsItems.map((stat) => (
-            <div 
-              key={stat.title}
-              className="flex items-center justify-between rounded-lg bg-card/50 p-3 glass-effect"
-              data-testid={`stat-${stat.title.toLowerCase().replace(' ', '-')}`}
-            >
-              <div className="flex items-center space-x-2">
-                <stat.icon className="h-4 w-4 text-primary" />
-                <div>
-                  <p className="text-xs text-muted-foreground">{stat.title}</p>
-                  <p className="text-sm font-medium text-foreground">{stat.value}</p>
-                </div>
-              </div>
-              <div className="text-xs text-success">{stat.trend}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Quick Stats Section Removed - Requires Real API Integration */}
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-6 py-4">
