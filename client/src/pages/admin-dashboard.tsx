@@ -117,11 +117,11 @@ export default function AdminDashboard() {
     try {
       const exportData = {
         summary: {
-          totalRevenue: analyticsData?.totalRevenueImpact || 0,
-          conversionRate: analyticsData?.conversionRate || 0,
-          averageOrderValue: analyticsData?.averageOrderValue || 0,
-          totalRewardsUnlocked: analyticsData?.totalRewardsUnlocked || 0,
-          milestonesHit: analyticsData?.milestonesHit || 0,
+          totalRevenue: (analyticsData as any)?.totalRevenueImpact || 0,
+          conversionRate: (analyticsData as any)?.conversionRate || 0,
+          averageOrderValue: (analyticsData as any)?.averageOrderValue || 0,
+          totalRewardsUnlocked: (analyticsData as any)?.totalRewardsUnlocked || 0,
+          milestonesHit: (analyticsData as any)?.milestonesHit || 0,
           generatedAt: new Date().toISOString(),
           timeRange
         },
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
   const overviewMetrics = [
     {
       title: "Total Revenue Impact",
-      value: analyticsData ? formatCurrency(analyticsData.totalRevenueImpact || 0) : "Loading...",
+      value: analyticsData ? formatCurrency((analyticsData as any).totalRevenueImpact || 0) : "Loading...",
       change: "N/A", // Will come from analytics comparison
       trend: "up" as const,
       icon: DollarSign,
@@ -221,7 +221,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Active Campaigns",
-      value: campaignsData ? campaignsData.filter((c: any) => c.status === 'active').length.toString() : "Loading...",
+      value: campaignsData ? (campaignsData as any[]).filter((c: any) => c.status === 'active').length.toString() : "Loading...",
       change: "N/A",
       trend: "up" as const, 
       icon: Target,
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Conversion Rate",
-      value: analyticsData ? `${(analyticsData.conversionRate || 0).toFixed(1)}%` : "Loading...",
+      value: analyticsData ? `${((analyticsData as any).conversionRate || 0).toFixed(1)}%` : "Loading...",
       change: "N/A",
       trend: "up" as const,
       icon: TrendingUp,
@@ -237,7 +237,7 @@ export default function AdminDashboard() {
     },
     {
       title: "Average Order Value",
-      value: analyticsData ? formatCurrency(analyticsData.averageOrderValue || 0) : "Loading...",
+      value: analyticsData ? formatCurrency((analyticsData as any).averageOrderValue || 0) : "Loading...",
       change: "N/A",
       trend: "up" as const, 
       icon: ShoppingCart,
@@ -246,7 +246,7 @@ export default function AdminDashboard() {
   ];
 
   // Get recent campaigns from real data
-  const recentCampaigns = campaignsData ? campaignsData.slice(0, 5).map((campaign: any) => ({
+  const recentCampaigns = campaignsData ? (campaignsData as any[]).slice(0, 5).map((campaign: any) => ({
     ...campaign,
     progress: calculateProgress(campaign.startDate, campaign.endDate),
     revenue: formatCurrency(0), // This would come from analytics
