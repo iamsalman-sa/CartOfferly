@@ -394,17 +394,8 @@ export default function AnalyticsDashboard() {
     conversionRate: 0
   }));
 
-  // Top products will be populated from real Shopify analytics data
-  const topProducts: Array<{
-    name: string;
-    revenue: string;
-    orders: number;
-    conversionRate: string;
-    averageDiscount: string;
-  }> = [];
-
-  // Monthly trends will be populated from real Shopify analytics data
-  const monthlyTrends: MonthlyTrend[] = [];
+  // Note: Real analytics data should be fetched from Shopify API
+  // These features require Shopify integration to function properly
 
   return (
     <div className="flex min-h-screen bg-background">

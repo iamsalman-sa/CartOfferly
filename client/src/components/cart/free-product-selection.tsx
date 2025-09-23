@@ -17,8 +17,8 @@ interface FreeProductSelectionProps {
   onProductsSelected?: (products: {id: string, value: number}[]) => void;
 }
 
-// Free products will be fetched from the backend based on store configuration
-const freeProducts: FreeProduct[] = [];
+// Free products should be fetched from API - component expects products to be passed as props
+// This component is currently not functional without real product data
 
 export default function FreeProductSelection({ cartValue, onProductsSelected }: FreeProductSelectionProps) {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
