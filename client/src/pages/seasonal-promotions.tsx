@@ -43,8 +43,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 
-// Get store ID from environment or localStorage for development
-const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID') || 'demo-store-id';
+// Get store ID from environment or localStorage
+const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
 
 // Seasonal promotion form schema
 const seasonalPromotionSchema = z.object({

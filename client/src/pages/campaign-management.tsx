@@ -43,8 +43,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
 
-// Get store ID from environment or localStorage for development
-const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID') || 'demo-store-id';
+// Get store ID from environment or localStorage
+const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
 
 // Campaign form schema
 const campaignSchema = z.object({

@@ -26,8 +26,8 @@ export default function CartDrawer() {
         // Create new cart session
         try {
           const cartTokenValue = nanoid();
-          const storeId = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID') || 'development-store';
-          const customerId = import.meta.env.VITE_SHOPIFY_CUSTOMER_ID || localStorage.getItem('SHOPIFY_CUSTOMER_ID') || 'development-customer';
+          const storeId = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
+          const customerId = import.meta.env.VITE_SHOPIFY_CUSTOMER_ID || localStorage.getItem('SHOPIFY_CUSTOMER_ID');
           
           const session = await apiRequest("POST", "/api/cart-sessions", {
             storeId, 

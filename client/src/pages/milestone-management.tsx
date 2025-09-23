@@ -24,7 +24,8 @@ import AdminSidebar from "@/components/admin-sidebar";
 import { cn } from "@/lib/utils";
 import type { Milestone } from "@shared/schema";
 
-const STORE_ID = "demo-store-id";
+// Get store ID from environment or localStorage
+const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
 
 // Form schemas
 const milestoneFormSchema = z.object({
