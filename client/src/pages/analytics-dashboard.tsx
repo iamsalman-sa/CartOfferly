@@ -210,8 +210,7 @@ export default function AnalyticsDashboard() {
           timeRange
         },
         campaigns: campaigns || [],
-        milestones: milestones || [],
-        monthlyTrends
+        milestones: milestones || []
       };
 
       // Convert to CSV format with proper escaping
@@ -258,17 +257,10 @@ export default function AnalyticsDashboard() {
           ])
         ),
         formatCsvRow(["", "", "", "", "", "", ""]),
-        // Monthly trends section
+        // Monthly trends section - requires API integration
         formatCsvRow(["MONTHLY TRENDS", "", "", ""]),
         formatCsvRow(["Month", "Revenue", "Orders", "Campaigns"]),
-        ...exportData.monthlyTrends.map((trend: MonthlyTrend) => 
-          formatCsvRow([
-            trend.month || "",
-            trend.revenue || 0,
-            trend.orders || 0,
-            trend.campaigns || 0
-          ])
-        )
+        formatCsvRow(["No data available", "Connect Shopify", "for real", "analytics"])
       ];
 
       // Create CSV content with BOM for Excel compatibility
@@ -999,17 +991,15 @@ export default function AnalyticsDashboard() {
                   </div>
                   
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    {monthlyTrends.slice(-3).map((month) => (
-                      <div key={month.month} className="text-center">
-                        <p className="text-2xl font-bold text-foreground">
-                          PKR {(month.revenue / 1000000).toFixed(1)}M
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-muted-foreground">
+                        PKR 0
                         </p>
-                        <p className="text-sm text-muted-foreground">{month.month} Revenue</p>
+                        <p className="text-sm text-muted-foreground">Monthly Revenue</p>
                         <p className="text-xs text-muted-foreground">
-                          {month.orders} orders • {month.campaigns} campaigns
+                          0 orders • 0 campaigns
                         </p>
                       </div>
-                    ))}
                   </div>
                 </CardContent>
               </Card>

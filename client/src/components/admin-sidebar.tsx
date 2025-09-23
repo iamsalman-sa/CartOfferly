@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { 
   LayoutDashboard, 
   Target, 
@@ -48,11 +49,46 @@ const adminNavItems = [
   }
 ];
 
-// Quick stats removed - requires real Shopify API integration
-const quickStatsItems: never[] = [];
+// Get store ID from environment or localStorage
+const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
 
 export default function AdminSidebar() {
   const [location] = useLocation();
+  
+  // Fetch real analytics data for KPIs
+  const { data: analyticsData } = useQuery({
+    queryKey: ['/api/stores', STORE_ID, 'analytics'],
+    enabled: !!STORE_ID,
+  });
+  
+  // Fetch campaigns data for active campaigns count
+  const { data: campaignsData } = useQuery({
+    queryKey: ['/api/stores', STORE_ID, 'campaigns'],
+    enabled: !!STORE_ID,
+  });
+  
+  // Calculate real KPI values
+  const activeCampaigns = campaignsData ? (campaignsData as any[]).filter((c: any) => c.status === 'active').length : 0;
+  const revenueImpact = (analyticsData as any)?.totalRevenueImpact || 0;
+  const conversions = (analyticsData as any)?.totalRewardsUnlocked || 0;
+  
+  const quickStatsItems = [
+    {
+      title: "Active Campaigns",
+      value: activeCampaigns.toString(),
+      icon: Target
+    },
+    {
+      title: "Revenue Impact",
+      value: `PKR ${revenueImpact.toLocaleString()}`,
+      icon: TrendingUp
+    },
+    {
+      title: "Conversions",
+      value: conversions.toString(),
+      icon: Users
+    }
+  ];
 
   return (
     <div className="flex h-screen w-80 flex-col bg-sidebar border-r border-sidebar-border shadow-2xl">
@@ -71,7 +107,28 @@ export default function AdminSidebar() {
         </div>
       </div>
 
-      {/* Quick Stats Section Removed - Requires Real API Integration */}
+      {/* Quick Stats */}
+      <div className="border-b border-sidebar-border px-6 py-4">
+        <h3 className="mb-3 text-sm font-medium text-muted-foreground">Quick Stats</h3>
+        <div className="space-y-2">
+          {quickStatsItems.map((stat) => (
+            <div 
+              key={stat.title}
+              className="flex items-center justify-between rounded-lg bg-card/50 p-3 glass-effect"
+              data-testid={`stat-${stat.title.toLowerCase().replace(' ', '-')}`}
+            >
+              <div className="flex items-center space-x-2">
+                <stat.icon className="h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">{stat.title}</p>
+                  <p className="text-sm font-medium text-foreground">{stat.value}</p>
+                </div>
+              </div>
+              {/* Trend data requires historical comparison - removed for clean state */}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-6 py-4">
