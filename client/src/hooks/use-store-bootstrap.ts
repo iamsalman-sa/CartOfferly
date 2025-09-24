@@ -41,13 +41,13 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
         if (!response.ok) {
           throw new Error(`Failed to fetch store: ${response.statusText}`);
         }
-        return response.json() as Promise<Store>;
+        return response.json();
       } catch (error) {
         console.error('Error fetching store:', error);
         return null;
       }
     },
-    enabled: !!shopifyStoreId && !storeId, // Only fetch if we don't have a cached store ID
+    enabled: !!shopifyStoreId, // Always try to fetch the store
   });
 
   // Mutation to create store if it doesn't exist
@@ -78,11 +78,11 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
       // Store exists, cache the ID
       setStoreId(store.id);
       localStorage.setItem('resolved_store_id', store.id);
-    } else if (!isFetching && !store && !createStoreMutation.isPending && !createStoreMutation.isSuccess) {
-      // Store doesn't exist and we're not already creating it, so create it
+    } else if (!isFetching && !store && !createStoreMutation.isPending && !createStoreMutation.isSuccess && !storeId) {
+      // Store doesn't exist, we haven't created it yet, and we don't have a cached ID
       createStoreMutation.mutate();
     }
-  }, [store, isFetching, createStoreMutation]);
+  }, [store, isFetching, createStoreMutation, storeId]);
 
   const isLoading = isFetching || createStoreMutation.isPending;
   const error = fetchError ? String(fetchError) : 
