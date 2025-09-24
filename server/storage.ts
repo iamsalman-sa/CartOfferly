@@ -27,6 +27,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
 
   // Store methods
+  getStores(): Promise<Store[]>;
   createStore(store: InsertStore): Promise<Store>;
   getStoreByShopifyId(shopifyStoreId: string): Promise<Store | undefined>;
   updateStoreToken(storeId: string, accessToken: string): Promise<void>;
@@ -163,6 +164,10 @@ export class DatabaseStorage implements IStorage {
   async createStore(store: InsertStore): Promise<Store> {
     const [newStore] = await db.insert(stores).values(store).returning();
     return newStore;
+  }
+
+  async getStores(): Promise<Store[]> {
+    return await db.select().from(stores);
   }
 
   async getStoreByShopifyId(shopifyStoreId: string): Promise<Store | undefined> {

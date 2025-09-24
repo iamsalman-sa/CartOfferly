@@ -18,6 +18,15 @@ import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Store management routes
+  app.get("/api/stores", async (req, res) => {
+    try {
+      const stores = await storage.getStores();
+      res.json(stores);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching stores", error });
+    }
+  });
+
   app.post("/api/stores", async (req, res) => {
     try {
       const storeData = insertStoreSchema.parse(req.body);
