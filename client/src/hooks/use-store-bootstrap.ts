@@ -27,7 +27,12 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
   // Get Shopify store configuration from environment
   const shopifyStoreId = import.meta.env.VITE_SHOPIFY_STORE_ID || 'development-store';
   const shopifyStoreName = import.meta.env.VITE_SHOPIFY_STORE_NAME || 'Development Store';
-  const shopifyAccessToken = import.meta.env.SHOPIFY_ADMIN_API_KEY || 'development-token';
+  // Use VITE_ prefixed environment variable for development - in production use secure secrets
+  const shopifyAccessToken = import.meta.env.VITE_SHOPIFY_ADMIN_API_KEY || 
+    (import.meta.env.NODE_ENV === 'development' ? 'dev-access-token' : null);
+
+  // Check if we have required configuration for store creation
+  const canCreateStore = !!(shopifyStoreId && shopifyStoreName && shopifyAccessToken);
 
   // Query to fetch store by Shopify ID
   const { data: store, isLoading: isFetching, error: fetchError } = useQuery({
@@ -79,14 +84,22 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
       setStoreId(store.id);
       localStorage.setItem('resolved_store_id', store.id);
     } else if (!isFetching && !store && !createStoreMutation.isPending && !createStoreMutation.isSuccess && !storeId) {
-      // Store doesn't exist, we haven't created it yet, and we don't have a cached ID
-      createStoreMutation.mutate();
+      // Only try to create store if we have required configuration
+      if (canCreateStore) {
+        createStoreMutation.mutate();
+      }
     }
-  }, [store, isFetching, createStoreMutation, storeId]);
+  }, [store, isFetching, createStoreMutation, storeId, canCreateStore]);
 
   const isLoading = isFetching || createStoreMutation.isPending;
-  const error = fetchError ? String(fetchError) : 
-                createStoreMutation.error ? String(createStoreMutation.error) : null;
+  
+  // Provide clear error messages for configuration issues
+  const configError = !canCreateStore && !store ? 
+    'Missing Shopify configuration. Please set VITE_SHOPIFY_ADMIN_API_KEY environment variable.' : null;
+  
+  const error = configError || 
+                (fetchError ? String(fetchError) : null) ||
+                (createStoreMutation.error ? String(createStoreMutation.error) : null);
 
   return {
     storeId,

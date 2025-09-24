@@ -244,6 +244,25 @@ Access real-time analytics at `/admin/analytics`:
 
 ## Security Considerations
 
+⚠️ **CRITICAL SECURITY WARNING - DEVELOPMENT SETUP ONLY** ⚠️
+
+**This current setup is for DEVELOPMENT ONLY and has a critical security vulnerability:**
+
+The Shopify admin token is currently handled on the frontend using `VITE_SHOPIFY_ADMIN_API_KEY`, which exposes the token in the compiled JavaScript bundle. This means anyone can inspect the client code and retrieve your Shopify admin token.
+
+**Before Production Deployment:**
+1. **Move token handling to backend**: Create a server-side endpoint that handles store creation using secure server environment variables
+2. **Remove client-side token access**: Update the frontend to call backend endpoints instead of handling tokens directly  
+3. **Use server-side secrets**: Store Shopify credentials securely on the server, never in client environment variables
+
+**Current Development Status:**
+- ✅ Application runs successfully in development mode
+- ✅ Database connected and schema deployed  
+- ✅ All API endpoints functional
+- ❌ **NOT PRODUCTION READY** - Token security must be addressed
+
+**Additional Security Requirements:**
+
 1. **API Keys**: Never commit API keys to version control
 2. **Database Access**: Use connection pooling for production
 3. **CORS Settings**: Restrict to your Shopify domain
