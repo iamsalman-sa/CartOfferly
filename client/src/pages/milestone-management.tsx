@@ -23,9 +23,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import AdminSidebar from "@/components/admin-sidebar";
 import { cn } from "@/lib/utils";
 import type { Milestone } from "@shared/schema";
-
-// Get store ID from environment or localStorage
-const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
+import { useStoreBootstrap } from "@/hooks/use-store-bootstrap";
 
 // Form schemas
 const milestoneFormSchema = z.object({
@@ -55,13 +53,29 @@ const milestoneFormSchema = z.object({
 type MilestoneFormData = z.infer<typeof milestoneFormSchema>;
 
 export default function MilestoneManagement() {
-  // Early return if no store ID is configured
-  if (!STORE_ID) {
+  // Use store bootstrap hook to get the correct store ID
+  const { storeId, isLoading: isStoreLoading, error: storeError } = useStoreBootstrap();
+
+  // Early return if store is loading or has error
+  if (isStoreLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Store Configuration Required</h2>
-          <p className="text-muted-foreground">Please configure your Shopify store ID to access milestone management.</p>
+          <h2 className="text-xl font-semibold mb-2">Loading Store Configuration...</h2>
+          <p className="text-muted-foreground">Please wait while we set up your store.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (storeError || !storeId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Store Configuration Error</h2>
+          <p className="text-muted-foreground">
+            {storeError || "Unable to configure store. Please check your environment variables."}
+          </p>
         </div>
       </div>
     );
@@ -82,14 +96,14 @@ export default function MilestoneManagement() {
 
   // Fetch milestones with status filter
   const { data: milestones = [], isLoading } = useQuery<Milestone[]>({
-    queryKey: ['/api/stores', STORE_ID, 'milestones', selectedStatus],
+    queryKey: ['/api/stores', storeId, 'milestones', selectedStatus],
     queryFn: () => {
       const params = new URLSearchParams();
       if (selectedStatus !== 'all') {
         params.set('status', selectedStatus);
       }
       // Note: By default, deleted milestones are excluded from all views
-      return fetch(`/api/stores/${STORE_ID}/milestones?${params}`).then(res => res.json());
+      return fetch(`/api/stores/${storeId}/milestones?${params}`).then(res => res.json());
     },
   });
 
@@ -108,7 +122,7 @@ export default function MilestoneManagement() {
       ));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'milestones'] });
       setSelectedMilestones([]);
       toast({ title: "Milestones activated successfully" });
     },
@@ -124,7 +138,7 @@ export default function MilestoneManagement() {
       ));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'milestones'] });
       setSelectedMilestones([]);
       toast({ title: "Milestones paused successfully" });
     },
@@ -140,7 +154,7 @@ export default function MilestoneManagement() {
       ));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'milestones'] });
       setSelectedMilestones([]);
       toast({ title: "Milestones deleted successfully" });
     },
@@ -204,7 +218,7 @@ export default function MilestoneManagement() {
       };
       
       console.log("Creating milestone with payload:", payload);
-      return apiRequest("POST", `/api/stores/${STORE_ID}/milestones`, payload);
+      return apiRequest("POST", `/api/stores/${storeId}/milestones`, payload);
     },
     onSuccess: () => {
       toast({
@@ -213,7 +227,7 @@ export default function MilestoneManagement() {
       });
       setIsCreateDialogOpen(false);
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'milestones'] });
     },
     onError: () => {
       toast({
@@ -259,7 +273,7 @@ export default function MilestoneManagement() {
       });
       setIsEditDialogOpen(false);
       setSelectedMilestone(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'milestones'] });
     },
     onError: () => {
       toast({
@@ -280,7 +294,7 @@ export default function MilestoneManagement() {
         title: "Success",
         description: "Milestone paused successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'milestones'] });
     },
     onError: () => {
       toast({
@@ -301,7 +315,7 @@ export default function MilestoneManagement() {
         title: "Success",
         description: "Milestone resumed successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'milestones'] });
     },
     onError: () => {
       toast({
@@ -322,7 +336,7 @@ export default function MilestoneManagement() {
         title: "Success",
         description: "Milestone deleted successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'milestones'] });
     },
     onError: () => {
       toast({
@@ -346,7 +360,7 @@ export default function MilestoneManagement() {
         title: "Success",
         description: "Milestone duplicated successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'milestones'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'milestones'] });
     },
     onError: () => {
       toast({

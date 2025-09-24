@@ -42,9 +42,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
-
-// Get store ID from environment or localStorage
-const STORE_ID = import.meta.env.VITE_SHOPIFY_STORE_ID || localStorage.getItem('SHOPIFY_STORE_ID');
+import { useStoreBootstrap } from "@/hooks/use-store-bootstrap";
 
 // Campaign form schema
 const campaignSchema = z.object({
@@ -383,13 +381,29 @@ function CampaignForm({
 }
 
 export default function CampaignManagement() {
-  // Early return if no store ID is configured
-  if (!STORE_ID) {
+  // Use store bootstrap hook to get the correct store ID
+  const { storeId, isLoading: isStoreLoading, error: storeError } = useStoreBootstrap();
+
+  // Early return if store is loading or has error
+  if (isStoreLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Store Configuration Required</h2>
-          <p className="text-muted-foreground">Please configure your Shopify store ID to access campaign management.</p>
+          <h2 className="text-xl font-semibold mb-2">Loading Store Configuration...</h2>
+          <p className="text-muted-foreground">Please wait while we set up your store.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (storeError || !storeId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Store Configuration Error</h2>
+          <p className="text-muted-foreground">
+            {storeError || "Unable to configure store. Please check your environment variables."}
+          </p>
         </div>
       </div>
     );
@@ -409,8 +423,8 @@ export default function CampaignManagement() {
 
   // Fetch campaigns data
   const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError } = useQuery<any[]>({
-    queryKey: ['/api/stores', STORE_ID, 'campaigns'],
-    enabled: !!STORE_ID,
+    queryKey: ['/api/stores', storeId, 'campaigns'],
+    enabled: !!storeId,
   });
 
   // Filter campaigns based on search and filters  
@@ -423,7 +437,7 @@ export default function CampaignManagement() {
 
   const createCampaignMutation = useMutation({
     mutationFn: async (data: CampaignFormData) => {
-      return apiRequest("POST", `/api/stores/${STORE_ID}/campaigns`, data);
+      return apiRequest("POST", `/api/stores/${storeId}/campaigns`, data);
     },
     onSuccess: () => {
       toast({
@@ -431,7 +445,7 @@ export default function CampaignManagement() {
         description: "Campaign created successfully",
       });
       setIsCreateDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'campaigns'] });
     },
     onError: () => {
       toast({
@@ -452,7 +466,7 @@ export default function CampaignManagement() {
         description: "Campaign updated successfully",
       });
       setEditingCampaign(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'campaigns'] });
     },
     onError: () => {
       toast({
@@ -472,7 +486,7 @@ export default function CampaignManagement() {
         title: "Success",
         description: `Campaign ${newStatus} successfully`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'campaigns'] });
     },
     onError: (_, { newStatus }) => {
       toast({
@@ -492,7 +506,7 @@ export default function CampaignManagement() {
         title: "Success",
         description: "Campaign deleted successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'campaigns'] });
     },
     onError: () => {
       toast({
@@ -511,7 +525,7 @@ export default function CampaignManagement() {
       ));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'campaigns'] });
       setSelectedCampaigns([]);
       toast({ title: "Campaigns activated successfully" });
     },
@@ -527,7 +541,7 @@ export default function CampaignManagement() {
       ));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'campaigns'] });
       setSelectedCampaigns([]);
       toast({ title: "Campaigns paused successfully" });
     },
@@ -543,7 +557,7 @@ export default function CampaignManagement() {
       ));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'campaigns'] });
       setSelectedCampaigns([]);
       toast({ title: "Campaigns deleted successfully" });
     },
@@ -568,7 +582,7 @@ export default function CampaignManagement() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'campaigns'] });
       toast({
         title: "Success",
         description: "Campaign duplicated successfully",
@@ -834,7 +848,7 @@ export default function CampaignManagement() {
                   <p className="text-muted-foreground mb-4">
                     There was an error loading your campaigns. Please try again.
                   </p>
-                  <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/stores', STORE_ID, 'campaigns'] })}>
+                  <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/stores', storeId, 'campaigns'] })}>
                     Retry
                   </Button>
                 </CardContent>

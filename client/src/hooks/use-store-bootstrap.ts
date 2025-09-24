@@ -1,0 +1,97 @@
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+
+interface Store {
+  id: string;
+  shopifyStoreId: string;
+  storeName: string;
+  accessToken: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+interface UseStoreBootstrapResult {
+  storeId: string | null;
+  isLoading: boolean;
+  error: string | null;
+  store: Store | null;
+}
+
+export function useStoreBootstrap(): UseStoreBootstrapResult {
+  const [storeId, setStoreId] = useState<string | null>(() => {
+    // Check if we have a cached store ID
+    return localStorage.getItem('resolved_store_id');
+  });
+  
+  // Get Shopify store configuration from environment
+  const shopifyStoreId = import.meta.env.VITE_SHOPIFY_STORE_ID || 'development-store';
+  const shopifyStoreName = import.meta.env.VITE_SHOPIFY_STORE_NAME || 'Development Store';
+  const shopifyAccessToken = import.meta.env.SHOPIFY_ADMIN_API_KEY || 'development-token';
+
+  // Query to fetch store by Shopify ID
+  const { data: store, isLoading: isFetching, error: fetchError } = useQuery({
+    queryKey: ['/api/stores', shopifyStoreId],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`/api/stores/${shopifyStoreId}`);
+        if (response.status === 404) {
+          return null; // Store doesn't exist, we'll create it
+        }
+        if (!response.ok) {
+          throw new Error(`Failed to fetch store: ${response.statusText}`);
+        }
+        return response.json() as Promise<Store>;
+      } catch (error) {
+        console.error('Error fetching store:', error);
+        return null;
+      }
+    },
+    enabled: !!shopifyStoreId && !storeId, // Only fetch if we don't have a cached store ID
+  });
+
+  // Mutation to create store if it doesn't exist
+  const createStoreMutation = useMutation({
+    mutationFn: async (): Promise<Store> => {
+      const storeData = {
+        shopifyStoreId,
+        storeName: shopifyStoreName,
+        accessToken: shopifyAccessToken,
+      };
+      
+      const response = await apiRequest('POST', '/api/stores', storeData);
+      return response;
+    },
+    onSuccess: (newStore: Store) => {
+      setStoreId(newStore.id);
+      localStorage.setItem('resolved_store_id', newStore.id);
+      queryClient.setQueryData(['/api/stores', shopifyStoreId], newStore);
+    },
+    onError: (error) => {
+      console.error('Error creating store:', error);
+    },
+  });
+
+  // Effect to handle store resolution
+  useEffect(() => {
+    if (store) {
+      // Store exists, cache the ID
+      setStoreId(store.id);
+      localStorage.setItem('resolved_store_id', store.id);
+    } else if (!isFetching && !store && !createStoreMutation.isPending && !createStoreMutation.isSuccess) {
+      // Store doesn't exist and we're not already creating it, so create it
+      createStoreMutation.mutate();
+    }
+  }, [store, isFetching, createStoreMutation]);
+
+  const isLoading = isFetching || createStoreMutation.isPending;
+  const error = fetchError ? String(fetchError) : 
+                createStoreMutation.error ? String(createStoreMutation.error) : null;
+
+  return {
+    storeId,
+    isLoading,
+    error,
+    store: store || createStoreMutation.data || null,
+  };
+}
