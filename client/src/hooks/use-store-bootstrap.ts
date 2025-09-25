@@ -89,7 +89,7 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
         createStoreMutation.mutate();
       }
     }
-  }, [store, isFetching, createStoreMutation, storeId, canCreateStore]);
+  }, [store, isFetching, createStoreMutation.isPending, createStoreMutation.isSuccess, storeId, canCreateStore]);
 
   const isLoading = isFetching || createStoreMutation.isPending;
   
