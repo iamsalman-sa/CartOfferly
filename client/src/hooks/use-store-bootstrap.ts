@@ -87,7 +87,7 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
       // Only try to create store if we have required configuration
       createStoreMutation.mutate();
     }
-  }, [store, isFetching, createStoreMutation.isPending, createStoreMutation.isSuccess, storeId, canCreateStore]);
+  }, [store, isFetching, createStoreMutation.isPending, createStoreMutation.isSuccess, canCreateStore]);
 
   const isLoading = isFetching || createStoreMutation.isPending;
   
