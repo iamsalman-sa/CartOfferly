@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 
@@ -25,14 +25,14 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
   });
   
   // Get Shopify store configuration from environment
-  const shopifyStoreId = import.meta.env.VITE_SHOPIFY_STORE_ID || 'development-store';
-  const shopifyStoreName = import.meta.env.VITE_SHOPIFY_STORE_NAME || 'Development Store';
+  const shopifyStoreId = useMemo(() => import.meta.env.VITE_SHOPIFY_STORE_ID || 'development-store', []);
+  const shopifyStoreName = useMemo(() => import.meta.env.VITE_SHOPIFY_STORE_NAME || 'Development Store', []);
   // Use VITE_ prefixed environment variable for development - in production use secure secrets
-  const shopifyAccessToken = import.meta.env.VITE_SHOPIFY_ADMIN_API_KEY || 
-    (import.meta.env.NODE_ENV === 'development' ? 'dev-access-token' : null);
+  const shopifyAccessToken = useMemo(() => import.meta.env.VITE_SHOPIFY_ADMIN_API_KEY || 
+    (import.meta.env.NODE_ENV === 'development' ? 'dev-access-token' : null), []);
 
   // Check if we have required configuration for store creation
-  const canCreateStore = !!(shopifyStoreId && shopifyStoreName && shopifyAccessToken);
+  const canCreateStore = useMemo(() => !!(shopifyStoreId && shopifyStoreName && shopifyAccessToken), [shopifyStoreId, shopifyStoreName, shopifyAccessToken]);
 
   // Query to fetch store by Shopify ID
   const { data: store, isLoading: isFetching, error: fetchError } = useQuery({
@@ -83,11 +83,9 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
       // Store exists, cache the ID
       setStoreId(store.id);
       localStorage.setItem('resolved_store_id', store.id);
-    } else if (!isFetching && !store && !createStoreMutation.isPending && !createStoreMutation.isSuccess && !storeId) {
+    } else if (!isFetching && !store && !createStoreMutation.isPending && !createStoreMutation.isSuccess && !storeId && canCreateStore) {
       // Only try to create store if we have required configuration
-      if (canCreateStore) {
-        createStoreMutation.mutate();
-      }
+      createStoreMutation.mutate();
     }
   }, [store, isFetching, createStoreMutation.isPending, createStoreMutation.isSuccess, storeId, canCreateStore]);
 
