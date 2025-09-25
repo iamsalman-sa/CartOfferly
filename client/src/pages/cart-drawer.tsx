@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import RewardProgress from "@/components/cart/reward-progress";
@@ -80,10 +80,10 @@ export default function CartDrawer() {
   };
 
 
-  const handleMilestoneUnlocked = () => {
+  const handleMilestoneUnlocked = useCallback(() => {
     setShowCelebration(true);
     setTimeout(() => setShowCelebration(false), 3000);
-  };
+  }, []);
 
   const handleFreeProductsSelected = (products: {id: string, value: number}[]) => {
     setSelectedFreeProducts(products);

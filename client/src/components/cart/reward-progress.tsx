@@ -32,7 +32,7 @@ export default function RewardProgress({ cartValue, onMilestoneUnlocked }: Rewar
     }
     
     setPreviousValue(cartValue);
-  }, [cartValue, previousValue, onMilestoneUnlocked]);
+  }, [cartValue, onMilestoneUnlocked]);
 
   const unlockedCount = milestones.filter(m => m.amount <= cartValue).length;
   const nextMilestone = milestones.find(m => m.amount > cartValue);
