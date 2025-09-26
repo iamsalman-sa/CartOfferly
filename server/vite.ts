@@ -44,8 +44,11 @@ export async function setupVite(app: Express, server: Server) {
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
     
-    // Skip Vite handling for static files from public directory
-    if (url.endsWith('.js') && url.includes('shopify-cart-integration')) {
+    // Skip Vite handling for API routes and JavaScript endpoints
+    if (url.startsWith('/api/') || 
+        url.startsWith('/cart-script') || 
+        url.endsWith('.js') || 
+        url.includes('shopify-cart-integration')) {
       return next();
     }
 

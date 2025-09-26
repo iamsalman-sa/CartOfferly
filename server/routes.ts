@@ -19,8 +19,8 @@ import fs from "fs";
 import path from "path";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // CRITICAL: This must be the FIRST route to avoid Vite conflicts
-  app.get("/cart-script", (req, res) => {
+  // Serve JavaScript via API path (which we know works)
+  app.get("/api/integration-script", (req, res) => {
     res.set({
       'Content-Type': 'application/javascript; charset=utf-8',
       'Access-Control-Allow-Origin': '*',
@@ -618,7 +618,123 @@ console.log('🎁 Real Beauty Store - Milestone Rewards Active!');`;
   app.get("/api/stores/:storeId/milestones", async (req, res) => {
     try {
       const { storeId } = req.params;
-      const { includeDeleted, status } = req.query;
+      const { includeDeleted, status, format } = req.query;
+      
+      // If requested as JavaScript, return integration script
+      if (format === 'js') {
+        res.set({
+          'Content-Type': 'application/javascript; charset=utf-8',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-cache'
+        });
+        
+        const jsContent = `console.log('🎁 Real Beauty Store - Cart Rewards Loading...');
+
+(function() {
+  'use strict';
+  
+  function createRewardsUI() {
+    const existing = document.getElementById('cart-rewards-container');
+    if (existing) existing.remove();
+    
+    const container = document.createElement('div');
+    container.id = 'cart-rewards-container';
+    container.style.cssText = \`
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      margin: 16px;
+      border-radius: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      text-align: center;
+      position: relative;
+      z-index: 1000;
+    \`;
+    
+    container.innerHTML = \`
+      <h3 style="margin: 0 0 16px 0; font-size: 20px;">🎁 Milestone Rewards</h3>
+      <div style="display: grid; gap: 8px; text-align: left;">
+        <div style="display: flex; justify-content: space-between; padding: 8px; background: rgba(255,255,255,0.15); border-radius: 6px;">
+          <span>🚚 Free Delivery</span>
+          <strong>PKR 2,500</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 8px; background: rgba(255,255,255,0.15); border-radius: 6px;">
+          <span>🎁 1 Free Product</span>
+          <strong>PKR 3,000</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 8px; background: rgba(255,255,255,0.15); border-radius: 6px;">
+          <span>🎁 2 Free Products</span>
+          <strong>PKR 4,000</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 8px; background: rgba(255,255,255,0.15); border-radius: 6px;">
+          <span>🎁 3 Free Products</span>
+          <strong>PKR 5,000</strong>
+        </div>
+      </div>
+      <div style="margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.2); border-radius: 8px;">
+        <strong>🛒 Add items to unlock rewards!</strong>
+      </div>
+    \`;
+    
+    const cartContainers = [
+      '.cart-drawer__content',
+      '.cart__content', 
+      '.cart-drawer',
+      '.cart',
+      '#cart-drawer',
+      '.js-cart-drawer',
+      '[data-cart]',
+      '.drawer__content',
+      '.cart-items',
+      'body'
+    ];
+    
+    let targetContainer = null;
+    for (let i = 0; i < cartContainers.length; i++) {
+      targetContainer = document.querySelector(cartContainers[i]);
+      if (targetContainer) {
+        console.log('🎯 Found cart container:', cartContainers[i]);
+        break;
+      }
+    }
+    
+    if (targetContainer) {
+      if (targetContainer.firstChild) {
+        targetContainer.insertBefore(container, targetContainer.firstChild);
+      } else {
+        targetContainer.appendChild(container);
+      }
+      console.log('✅ Milestone rewards displayed!');
+    }
+  }
+  
+  function init() {
+    console.log('🚀 Initializing milestone rewards...');
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', createRewardsUI);
+    } else {
+      setTimeout(createRewardsUI, 1000);
+    }
+    
+    document.addEventListener('click', function(e) {
+      if (e.target.matches && (e.target.matches('[data-cart-drawer]') || 
+          e.target.matches('.cart-drawer-toggle') || 
+          e.target.matches('[href="/cart"]') || 
+          e.target.matches('.cart-link'))) {
+        setTimeout(createRewardsUI, 500);
+      }
+    });
+  }
+  
+  init();
+})();
+
+console.log('✅ Real Beauty Store Milestone Rewards Ready!');`;
+        
+        return res.send(jsContent);
+      }
       
       let milestones;
       if (status) {
