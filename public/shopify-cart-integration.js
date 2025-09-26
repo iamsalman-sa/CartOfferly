@@ -9,7 +9,7 @@
   // Configuration for Real Beauty Store
   const CONFIG = {
     adminApiUrl: 'https://cartofferly.onrender.com',
-    shopifyStoreId: 'realbeauty',
+    shopifyStoreId: 'real-beauty-9914.myshopify.com',
     milestoneContainerId: 'cart-rewards-milestones',
     cartPollInterval: 3000,
     debug: true // Enable detailed logging
