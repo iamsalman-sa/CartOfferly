@@ -1,21 +1,50 @@
 import { useEffect, useState } from "react";
 import { CheckCircle, Gift } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useStoreBootstrap } from "@/hooks/use-store-bootstrap";
 
 interface RewardProgressProps {
   cartValue: number;
   onMilestoneUnlocked?: () => void;
 }
 
-const milestones = [
-  { amount: 2500, label: "Free Delivery", type: "delivery", icon: "🚚" },
-  { amount: 3000, label: "1 Free Product", type: "products", count: 1, icon: "🎁" },
-  { amount: 4000, label: "2 Free Products", type: "products", count: 2, icon: "🎁" },
-  { amount: 5000, label: "3 Free Products", type: "products", count: 3, icon: "🎁" }
-];
+// Milestone interface to match API response
+interface Milestone {
+  id: string;
+  name: string;
+  thresholdAmount: number;
+  rewardType: 'free_delivery' | 'free_products' | 'discount';
+  freeProductCount?: number;
+  discountValue?: string;
+  icon?: string;
+  color?: string;
+}
 
 export default function RewardProgress({ cartValue, onMilestoneUnlocked }: RewardProgressProps) {
   const [previousValue, setPreviousValue] = useState(cartValue);
   const [justUnlocked, setJustUnlocked] = useState<number[]>([]);
+  
+  // Get store ID to fetch milestones
+  const { storeId } = useStoreBootstrap();
+  
+  // Fetch milestones from API
+  const { data: milestonesData, isLoading } = useQuery<Milestone[]>({
+    queryKey: ['/api/stores', storeId, 'milestones'],
+    enabled: !!storeId,
+  });
+  
+  // Filter active milestones and sort by threshold
+  const milestones = (milestonesData || [])
+    .filter(m => m.thresholdAmount > 0)
+    .sort((a, b) => a.thresholdAmount - b.thresholdAmount)
+    .map(m => ({
+      amount: m.thresholdAmount,
+      label: m.name,
+      type: m.rewardType === 'free_delivery' ? 'delivery' : 'products',
+      count: m.freeProductCount || 1,
+      icon: m.icon || (m.rewardType === 'free_delivery' ? '🚚' : '🎁'),
+      id: m.id
+    }));
 
   useEffect(() => {
     // Check for newly unlocked milestones
@@ -34,9 +63,25 @@ export default function RewardProgress({ cartValue, onMilestoneUnlocked }: Rewar
     setPreviousValue(cartValue);
   }, [cartValue, previousValue, onMilestoneUnlocked]);
 
+  // Show loading state if milestones are being fetched
+  if (isLoading || !milestones.length) {
+    return (
+      <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg p-6 milestone-glow border border-accent/20 animate-pulse">
+        <div className="h-6 bg-muted rounded mb-4"></div>
+        <div className="h-4 bg-muted rounded mb-6"></div>
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-16 bg-muted rounded"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  
   const unlockedCount = milestones.filter(m => m.amount <= cartValue).length;
   const nextMilestone = milestones.find(m => m.amount > cartValue);
-  const progressPercentage = Math.min((cartValue / 5000) * 100, 100);
+  const maxMilestone = milestones[milestones.length - 1]?.amount || 5000;
+  const progressPercentage = Math.min((cartValue / maxMilestone) * 100, 100);
 
   return (
     <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg p-6 milestone-glow border border-accent/20">
@@ -66,7 +111,7 @@ export default function RewardProgress({ cartValue, onMilestoneUnlocked }: Rewar
       <div className="mb-6">
         <div className="flex justify-between text-xs text-muted-foreground mb-2">
           <span>PKR 0</span>
-          <span>PKR 5,000</span>
+          <span>PKR {maxMilestone.toLocaleString()}</span>
         </div>
         <div className="w-full bg-border rounded-full h-3 relative overflow-hidden">
           <div 

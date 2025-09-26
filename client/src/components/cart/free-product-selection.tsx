@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Star } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useStoreBootstrap } from "@/hooks/use-store-bootstrap";
 
 interface FreeProduct {
   id: string;
@@ -10,6 +12,7 @@ interface FreeProduct {
   image: string;
   description: string;
   value: number;
+  isEligibleForRewards?: boolean;
 }
 
 interface FreeProductSelectionProps {
@@ -17,17 +20,73 @@ interface FreeProductSelectionProps {
   onProductsSelected?: (products: {id: string, value: number}[]) => void;
 }
 
-// TODO: Remove this placeholder array when real API integration is implemented
-const freeProducts: FreeProduct[] = []; // Empty array - requires API integration
+// Interface for API product response
+interface ApiProduct {
+  id: string;
+  name: string;
+  price: number;
+  images?: string[];
+  description?: string;
+  isEligibleForRewards?: boolean;
+}
 
 export default function FreeProductSelection({ cartValue, onProductsSelected }: FreeProductSelectionProps) {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [appliedProducts, setAppliedProducts] = useState<string[]>([]);
+  
+  // Get store ID to fetch products
+  const { storeId } = useStoreBootstrap();
+  
+  // Fetch eligible products from API
+  const { data: productsData, isLoading } = useQuery<ApiProduct[]>({
+    queryKey: ['/api/stores', storeId, 'products'],
+    enabled: !!storeId,
+  });
+  
+  // Filter products eligible for rewards
+  const freeProducts: FreeProduct[] = (productsData || [])
+    .filter(p => p.isEligibleForRewards)
+    .map(p => ({
+      id: p.id,
+      name: p.name,
+      image: p.images?.[0] || '/api/placeholder/150/150',
+      description: p.description || `Get this ${p.name} for free!`,
+      value: p.price
+    }));
 
   // Calculate how many products can be selected
   const maxProducts = cartValue >= 5000 ? 3 : cartValue >= 4000 ? 2 : cartValue >= 3000 ? 1 : 0;
 
   if (maxProducts === 0) return null;
+  
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="bg-gradient-to-r from-accent/10 to-primary/10 rounded-lg p-6 border border-accent/30 animate-pulse">
+        <div className="h-6 bg-muted rounded mb-4"></div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="h-32 bg-muted rounded"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  
+  // Show message if no eligible products found
+  if (!freeProducts.length) {
+    return (
+      <div className="bg-gradient-to-r from-accent/10 to-primary/10 rounded-lg p-6 border border-accent/30">
+        <div className="text-center py-8">
+          <Star className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-semibold mb-2">Free Products Coming Soon!</h3>
+          <p className="text-muted-foreground">
+            You've unlocked {maxProducts} free product{maxProducts !== 1 ? 's' : ''}, but eligible products are still being set up.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const toggleProduct = (productId: string) => {
     setSelectedProducts(prev => {
