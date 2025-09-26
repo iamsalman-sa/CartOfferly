@@ -97,7 +97,7 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
         localStorage.removeItem('resolved_store_id');
       }
     }
-  }, [store, isFetching, createStoreMutation.isPending, createStoreMutation.isSuccess]);
+  }, [store, isFetching, createStoreMutation.isPending, createStoreMutation.isSuccess, storeId, canCreateStore, isProduction]);
 
   const isLoading = isFetching || createStoreMutation.isPending;
   
