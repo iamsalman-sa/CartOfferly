@@ -1,282 +1,471 @@
 /**
  * Shopify Cart Rewards Integration Script
- * This script connects your Shopify store to your Render admin API
- * to display milestone rewards in the cart
+ * Connects www.realbeauty.store to cartofferly.onrender.com milestone system
  */
 
 (function() {
   'use strict';
   
-  // Configuration - Update these with your actual values
+  // Configuration for Real Beauty Store
   const CONFIG = {
-    // Your Render admin app URL (replace with your actual Render URL)
     adminApiUrl: 'https://cartofferly.onrender.com',
-    
-    // Your store ID from the admin database  
-    shopifyStoreId: 'realbeauty', // Matches your Real Beauty Store
-    
-    // Milestone container selector
+    shopifyStoreId: 'realbeauty',
     milestoneContainerId: 'cart-rewards-milestones',
-    
-    // Cart polling interval (ms)
-    cartPollInterval: 2000
+    cartPollInterval: 3000,
+    debug: true // Enable detailed logging
   };
 
   let currentCartTotal = 0;
   let milestones = [];
   let cartSession = null;
+  let isInitialized = false;
+
+  // Debug logging
+  function debugLog(message, data = null) {
+    if (CONFIG.debug) {
+      console.log(`🎯 [Cart Rewards] ${message}`, data || '');
+    }
+  }
 
   // Initialize the integration
   function init() {
-    console.log('🎯 Initializing Shopify Cart Rewards Integration...');
+    if (isInitialized) {
+      debugLog('Already initialized, skipping...');
+      return;
+    }
+
+    debugLog('Initializing Shopify Cart Rewards Integration...');
+    debugLog('Config:', CONFIG);
     
-    // Load milestones from your admin API
+    // Load milestones first
     loadMilestones()
-      .then(() => {
-        // Create UI elements
+      .then((loadedMilestones) => {
+        if (loadedMilestones && loadedMilestones.length > 0) {
+          milestones = loadedMilestones;
+          debugLog(`✅ Loaded ${milestones.length} milestones:`, milestones);
+          
+          // Get initial cart total
+          return getCurrentCartTotal();
+        } else {
+          throw new Error('No milestones loaded from API');
+        }
+      })
+      .then((cartTotal) => {
+        currentCartTotal = cartTotal;
+        debugLog(`💰 Initial cart total: PKR ${currentCartTotal}`);
+        
+        // Create UI
         createMilestoneUI();
         
-        // Start monitoring cart changes
+        // Start monitoring
         startCartMonitoring();
         
-        console.log('✅ Cart Rewards Integration loaded successfully!');
+        isInitialized = true;
+        debugLog('✅ Cart Rewards Integration loaded successfully!');
       })
       .catch(error => {
         console.error('❌ Failed to initialize Cart Rewards:', error);
+        debugLog('Initialization failed:', error.message);
       });
   }
 
-  // Load milestones from your Render admin API
+  // Load milestones from Render API with better error handling
   async function loadMilestones() {
     try {
-      const response = await fetch(`${CONFIG.adminApiUrl}/api/stores/${CONFIG.shopifyStoreId}/milestones`);
+      debugLog(`📡 Fetching milestones from: ${CONFIG.adminApiUrl}/api/stores/${CONFIG.shopifyStoreId}/milestones`);
+      
+      const response = await fetch(`${CONFIG.adminApiUrl}/api/stores/${CONFIG.shopifyStoreId}/milestones`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        mode: 'cors'
+      });
+      
+      debugLog(`📡 API Response Status: ${response.status}`);
       
       if (!response.ok) {
-        throw new Error(`Failed to load milestones: ${response.status}`);
+        const errorText = await response.text();
+        debugLog(`❌ API Error Response:`, errorText);
+        throw new Error(`API Error ${response.status}: ${errorText}`);
       }
       
-      milestones = await response.json();
+      const data = await response.json();
+      debugLog(`📊 Raw milestone data:`, data);
       
-      // Sort milestones by threshold amount
-      milestones.sort((a, b) => a.thresholdAmount - b.thresholdAmount);
+      if (!Array.isArray(data)) {
+        throw new Error(`Invalid milestone data format: ${typeof data}`);
+      }
       
-      console.log('📊 Loaded milestones:', milestones);
-      return milestones;
+      if (data.length === 0) {
+        debugLog('⚠️ No milestones found for store. Checking alternatives...');
+        
+        // Try alternative store IDs
+        const alternatives = ['development-store', 'realbeauty-store', 'real-beauty'];
+        for (const altStoreId of alternatives) {
+          try {
+            debugLog(`🔄 Trying alternative store ID: ${altStoreId}`);
+            const altResponse = await fetch(`${CONFIG.adminApiUrl}/api/stores/${altStoreId}/milestones`);
+            if (altResponse.ok) {
+              const altData = await altResponse.json();
+              if (altData.length > 0) {
+                debugLog(`✅ Found milestones with store ID: ${altStoreId}`, altData);
+                CONFIG.shopifyStoreId = altStoreId; // Update config
+                return processMilestones(altData);
+              }
+            }
+          } catch (e) {
+            debugLog(`❌ Alternative ${altStoreId} failed:`, e.message);
+          }
+        }
+        
+        throw new Error('No milestones found with any store ID');
+      }
+      
+      return processMilestones(data);
+      
     } catch (error) {
-      console.error('Failed to load milestones:', error);
+      debugLog(`❌ loadMilestones error:`, error);
       throw error;
     }
   }
 
-  // Create milestone UI in the cart
-  function createMilestoneUI() {
-    // Find cart container (adjust selector based on your theme)
-    const cartContainer = document.querySelector('.cart-drawer, .cart, #cart-drawer, .js-cart-drawer') || 
-                         document.querySelector('[data-cart]') ||
-                         document.body;
+  // Process and sort milestone data
+  function processMilestones(rawMilestones) {
+    const processed = rawMilestones
+      .filter(m => m.status === 'active' && m.thresholdAmount > 0)
+      .map(m => ({
+        id: m.id,
+        name: m.name,
+        amount: parseFloat(m.thresholdAmount),
+        rewardType: m.rewardType,
+        icon: m.icon || (m.rewardType === 'free_delivery' ? '🚚' : '🎁'),
+        color: m.color || '#e91e63'
+      }))
+      .sort((a, b) => a.amount - b.amount);
+    
+    debugLog(`🎯 Processed milestones:`, processed);
+    return processed;
+  }
 
-    if (!cartContainer) {
-      console.warn('Cart container not found. Milestones will be added to body.');
+  // Get current cart total from Shopify
+  async function getCurrentCartTotal() {
+    try {
+      const response = await fetch('/cart.js');
+      const cart = await response.json();
+      const total = cart.total_price / 100; // Convert from cents
+      debugLog(`💰 Cart total from Shopify: PKR ${total}`);
+      return total;
+    } catch (error) {
+      debugLog('❌ Failed to get cart total:', error);
+      return 0;
+    }
+  }
+
+  // Create milestone UI with enhanced styling
+  function createMilestoneUI() {
+    // Remove existing container if present
+    const existing = document.getElementById(CONFIG.milestoneContainerId);
+    if (existing) {
+      existing.remove();
     }
 
-    // Create milestone container
+    // Find the best place to insert milestones
+    const cartSelectors = [
+      '.cart-drawer__content',
+      '.cart__content', 
+      '.cart-drawer',
+      '.cart',
+      '#cart-drawer',
+      '.js-cart-drawer',
+      '[data-cart]',
+      '.drawer__content',
+      '.cart-items'
+    ];
+    
+    let cartContainer = null;
+    for (const selector of cartSelectors) {
+      cartContainer = document.querySelector(selector);
+      if (cartContainer) {
+        debugLog(`✅ Found cart container: ${selector}`);
+        break;
+      }
+    }
+    
+    if (!cartContainer) {
+      debugLog('⚠️ No cart container found, adding to body');
+      cartContainer = document.body;
+    }
+
+    // Create milestone container with enhanced design
     const milestoneContainer = document.createElement('div');
     milestoneContainer.id = CONFIG.milestoneContainerId;
-    milestoneContainer.className = 'cart-rewards-container';
     milestoneContainer.innerHTML = `
       <style>
-        .cart-rewards-container {
+        #${CONFIG.milestoneContainerId} {
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-radius: 12px;
-          padding: 20px;
-          margin: 16px 0;
+          border-radius: 16px;
+          padding: 24px;
+          margin: 16px;
           color: white;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        .rewards-title {
-          font-size: 18px;
-          font-weight: bold;
-          margin-bottom: 12px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .rewards-progress-bar {
-          width: 100%;
-          height: 8px;
-          background: rgba(255,255,255,0.3);
-          border-radius: 4px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+          backdrop-filter: blur(10px);
+          position: relative;
           overflow: hidden;
-          margin: 12px 0;
         }
-        .rewards-progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #4ade80, #22c55e);
-          border-radius: 4px;
-          transition: width 0.5s ease;
-          width: 0%;
+        #${CONFIG.milestoneContainerId}::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+          pointer-events: none;
         }
-        .milestone-item {
+        .rewards-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 8px 0;
-          border-bottom: 1px solid rgba(255,255,255,0.2);
+          margin-bottom: 20px;
+          position: relative;
+          z-index: 1;
         }
-        .milestone-item:last-child {
-          border-bottom: none;
+        .rewards-title {
+          font-size: 20px;
+          font-weight: bold;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .cart-value-display {
+          background: rgba(255,255,255,0.2);
+          padding: 8px 16px;
+          border-radius: 20px;
+          font-weight: bold;
+          font-size: 14px;
+        }
+        .progress-section {
+          margin: 20px 0;
+          position: relative;
+          z-index: 1;
+        }
+        .progress-bar {
+          width: 100%;
+          height: 10px;
+          background: rgba(255,255,255,0.3);
+          border-radius: 5px;
+          overflow: hidden;
+          margin: 10px 0;
+        }
+        .progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #4ade80, #22c55e);
+          border-radius: 5px;
+          transition: width 0.6s ease;
+          width: 0%;
+        }
+        .milestones-grid {
+          display: grid;
+          gap: 12px;
+          position: relative;
+          z-index: 1;
+        }
+        .milestone-card {
+          background: rgba(255,255,255,0.15);
+          border-radius: 12px;
+          padding: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          transition: all 0.3s ease;
+          border: 1px solid rgba(255,255,255,0.2);
+        }
+        .milestone-card.unlocked {
+          background: rgba(34, 197, 94, 0.3);
+          border-color: rgba(34, 197, 94, 0.5);
+          transform: translateX(4px);
         }
         .milestone-info {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 12px;
         }
         .milestone-icon {
-          font-size: 20px;
+          font-size: 24px;
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255,255,255,0.2);
+          border-radius: 50%;
+        }
+        .milestone-details h4 {
+          margin: 0 0 4px 0;
+          font-size: 16px;
+          font-weight: 600;
+        }
+        .milestone-threshold {
+          font-size: 13px;
+          opacity: 0.9;
         }
         .milestone-status {
+          padding: 6px 12px;
+          border-radius: 20px;
           font-size: 12px;
-          padding: 2px 8px;
-          border-radius: 12px;
           font-weight: bold;
+          white-space: nowrap;
         }
-        .milestone-unlocked {
+        .status-unlocked {
           background: #22c55e;
           color: white;
         }
-        .milestone-locked {
+        .status-locked {
           background: rgba(255,255,255,0.3);
-          color: rgba(255,255,255,0.8);
+          color: rgba(255,255,255,0.9);
         }
-        .current-cart-value {
+        .milestone-celebration {
+          animation: celebration 0.6s ease;
+        }
+        @keyframes celebration {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(34, 197, 94, 0.5); }
+          100% { transform: scale(1); }
+        }
+        .next-milestone {
+          text-align: center;
+          margin-top: 16px;
+          padding: 12px;
+          background: rgba(255,255,255,0.1);
+          border-radius: 8px;
           font-size: 14px;
-          margin-bottom: 8px;
-          opacity: 0.9;
         }
       </style>
-      <div class="rewards-content">
+      
+      <div class="rewards-header">
         <div class="rewards-title">
           🎁 Milestone Rewards
         </div>
-        <div class="current-cart-value">
-          Cart Total: <span id="cart-total-display">PKR 0</span>
+        <div class="cart-value-display" id="cart-total-display">
+          PKR 0
         </div>
-        <div class="rewards-progress-bar">
-          <div class="rewards-progress-fill" id="progress-fill"></div>
+      </div>
+      
+      <div class="progress-section">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
         </div>
-        <div id="milestones-list">
-          <!-- Milestones will be populated here -->
-        </div>
+      </div>
+      
+      <div class="milestones-grid" id="milestones-grid">
+        <!-- Milestones will be populated here -->
+      </div>
+      
+      <div class="next-milestone" id="next-milestone-info">
+        <!-- Next milestone info -->
       </div>
     `;
 
-    // Insert into cart
-    if (cartContainer) {
+    // Insert at the beginning of cart container
+    if (cartContainer.firstChild) {
       cartContainer.insertBefore(milestoneContainer, cartContainer.firstChild);
+    } else {
+      cartContainer.appendChild(milestoneContainer);
     }
 
-    // Populate milestones
+    debugLog('✅ Milestone UI created');
     updateMilestoneDisplay();
   }
 
-  // Update milestone display based on current cart value
+  // Update milestone display
   function updateMilestoneDisplay() {
-    const milestonesList = document.getElementById('milestones-list');
     const cartTotalDisplay = document.getElementById('cart-total-display');
     const progressFill = document.getElementById('progress-fill');
+    const milestonesGrid = document.getElementById('milestones-grid');
+    const nextMilestoneInfo = document.getElementById('next-milestone-info');
 
-    if (!milestonesList || !cartTotalDisplay || !progressFill) return;
+    if (!cartTotalDisplay || !progressFill || !milestonesGrid || !nextMilestoneInfo) {
+      debugLog('❌ UI elements not found for update');
+      return;
+    }
 
-    // Update cart total display
+    // Update cart total
     cartTotalDisplay.textContent = `PKR ${currentCartTotal.toLocaleString()}`;
 
-    // Calculate progress percentage
-    const maxMilestone = milestones.length > 0 ? milestones[milestones.length - 1].thresholdAmount : 5000;
+    // Calculate progress
+    const maxMilestone = milestones.length > 0 ? milestones[milestones.length - 1].amount : 5000;
     const progressPercentage = Math.min((currentCartTotal / maxMilestone) * 100, 100);
     progressFill.style.width = `${progressPercentage}%`;
 
-    // Clear and rebuild milestones list
-    milestonesList.innerHTML = '';
-
+    // Update milestones
+    milestonesGrid.innerHTML = '';
     milestones.forEach(milestone => {
-      const isUnlocked = currentCartTotal >= milestone.thresholdAmount;
-      const milestoneElement = document.createElement('div');
-      milestoneElement.className = 'milestone-item';
+      const isUnlocked = currentCartTotal >= milestone.amount;
       
-      milestoneElement.innerHTML = `
+      const milestoneCard = document.createElement('div');
+      milestoneCard.className = `milestone-card ${isUnlocked ? 'unlocked' : ''}`;
+      milestoneCard.innerHTML = `
         <div class="milestone-info">
-          <span class="milestone-icon">${milestone.icon || '🎁'}</span>
-          <div>
-            <div style="font-weight: bold;">${milestone.name}</div>
-            <div style="font-size: 12px; opacity: 0.8;">PKR ${milestone.thresholdAmount.toLocaleString()}</div>
+          <div class="milestone-icon">${milestone.icon}</div>
+          <div class="milestone-details">
+            <h4>${milestone.name}</h4>
+            <div class="milestone-threshold">PKR ${milestone.amount.toLocaleString()}</div>
           </div>
         </div>
-        <span class="milestone-status ${isUnlocked ? 'milestone-unlocked' : 'milestone-locked'}">
-          ${isUnlocked ? '✓ Unlocked!' : 'Locked'}
-        </span>
+        <div class="milestone-status ${isUnlocked ? 'status-unlocked' : 'status-locked'}">
+          ${isUnlocked ? '✓ Unlocked' : 'Locked'}
+        </div>
       `;
-
-      milestonesList.appendChild(milestoneElement);
+      
+      milestonesGrid.appendChild(milestoneCard);
     });
-  }
 
-  // Get current cart total from Shopify
-  function getCurrentCartTotal() {
-    return fetch('/cart.js')
-      .then(response => response.json())
-      .then(cart => {
-        const total = cart.total_price / 100; // Shopify returns price in cents
-        return total;
-      })
-      .catch(error => {
-        console.error('Failed to get cart total:', error);
-        return 0;
-      });
-  }
+    // Next milestone info
+    const nextMilestone = milestones.find(m => m.amount > currentCartTotal);
+    if (nextMilestone) {
+      const remaining = nextMilestone.amount - currentCartTotal;
+      nextMilestoneInfo.innerHTML = `
+        Add PKR ${remaining.toLocaleString()} more to unlock: <strong>${nextMilestone.name}</strong>
+      `;
+      nextMilestoneInfo.style.display = 'block';
+    } else {
+      nextMilestoneInfo.style.display = 'none';
+    }
 
-  // Start monitoring cart changes
-  function startCartMonitoring() {
-    setInterval(async () => {
-      try {
-        const newTotal = await getCurrentCartTotal();
-        
-        if (newTotal !== currentCartTotal) {
-          const previousTotal = currentCartTotal;
-          currentCartTotal = newTotal;
-          
-          console.log(`💰 Cart total updated: PKR ${currentCartTotal.toLocaleString()}`);
-          
-          // Update UI
-          updateMilestoneDisplay();
-          
-          // Check for newly unlocked milestones
-          checkNewlyUnlockedMilestones(previousTotal, newTotal);
-          
-          // Update cart session in admin API
-          updateCartSession(newTotal);
-        }
-      } catch (error) {
-        console.error('Error monitoring cart:', error);
-      }
-    }, CONFIG.cartPollInterval);
+    debugLog('🔄 Display updated', { 
+      cartTotal: currentCartTotal, 
+      progress: progressPercentage,
+      unlockedCount: milestones.filter(m => m.amount <= currentCartTotal).length
+    });
   }
 
   // Check for newly unlocked milestones
   function checkNewlyUnlockedMilestones(previousTotal, newTotal) {
     const newlyUnlocked = milestones.filter(milestone => 
-      milestone.thresholdAmount <= newTotal && milestone.thresholdAmount > previousTotal
+      milestone.amount <= newTotal && milestone.amount > previousTotal
     );
 
-    if (newlyUnlocked.length > 0) {
-      newlyUnlocked.forEach(milestone => {
-        showMilestoneUnlockedNotification(milestone);
-      });
-    }
+    newlyUnlocked.forEach(milestone => {
+      showCelebrationNotification(milestone);
+      
+      // Add celebration animation to the milestone card
+      setTimeout(() => {
+        const milestoneCards = document.querySelectorAll('.milestone-card');
+        milestoneCards.forEach(card => {
+          if (card.textContent.includes(milestone.name)) {
+            card.classList.add('milestone-celebration');
+            setTimeout(() => card.classList.remove('milestone-celebration'), 600);
+          }
+        });
+      }, 100);
+    });
   }
 
-  // Show milestone unlocked notification
-  function showMilestoneUnlockedNotification(milestone) {
-    // Create notification
+  // Show celebration notification
+  function showCelebrationNotification(milestone) {
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
@@ -284,33 +473,37 @@
       right: 20px;
       background: linear-gradient(135deg, #4ade80, #22c55e);
       color: white;
-      padding: 16px 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 10000;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      z-index: 100000;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 300px;
-      animation: slideIn 0.3s ease;
+      max-width: 320px;
+      animation: slideInRight 0.4s ease;
     `;
     
     notification.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 4px;">
+      <div style="font-size: 18px; font-weight: bold; margin-bottom: 8px;">
         🎉 Milestone Unlocked!
       </div>
-      <div>
-        ${milestone.icon || '🎁'} ${milestone.name}
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 24px;">${milestone.icon}</span>
+        <span style="font-size: 16px;">${milestone.name}</span>
       </div>
     `;
 
-    // Add CSS animation
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-    `;
-    document.head.appendChild(style);
+    // Add animation CSS
+    if (!document.getElementById('celebration-styles')) {
+      const style = document.createElement('style');
+      style.id = 'celebration-styles';
+      style.textContent = `
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
 
     document.body.appendChild(notification);
 
@@ -319,55 +512,96 @@
       notification.remove();
     }, 5000);
 
-    console.log(`🎉 Milestone unlocked: ${milestone.name}`);
+    debugLog(`🎉 Celebration shown for: ${milestone.name}`);
   }
 
-  // Update cart session in admin API
-  async function updateCartSession(cartValue) {
-    try {
-      // Create or update cart session
-      const customerId = 'shopify-customer'; // You can get this from Shopify's customer object
-      
-      const response = await fetch(`${CONFIG.adminApiUrl}/api/cart-sessions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          storeId: CONFIG.shopifyStoreId,
-          customerId: customerId,
-          cartToken: `shopify-${Date.now()}`,
-          currentValue: cartValue.toString(),
-          unlockedMilestones: milestones
-            .filter(m => m.thresholdAmount <= cartValue)
-            .map(m => m.id),
-          selectedFreeProducts: [],
-          isActive: true
-        })
-      });
-
-      if (response.ok) {
-        cartSession = await response.json();
+  // Start monitoring cart changes
+  function startCartMonitoring() {
+    debugLog(`🔄 Starting cart monitoring (${CONFIG.cartPollInterval}ms interval)`);
+    
+    setInterval(async () => {
+      try {
+        const newTotal = await getCurrentCartTotal();
+        
+        if (newTotal !== currentCartTotal) {
+          const previousTotal = currentCartTotal;
+          currentCartTotal = newTotal;
+          
+          debugLog(`💰 Cart total changed: ${previousTotal} → ${currentCartTotal}`);
+          
+          // Update UI
+          updateMilestoneDisplay();
+          
+          // Check for celebrations
+          if (newTotal > previousTotal) {
+            checkNewlyUnlockedMilestones(previousTotal, newTotal);
+          }
+        }
+      } catch (error) {
+        debugLog('❌ Cart monitoring error:', error);
       }
-    } catch (error) {
-      console.error('Failed to update cart session:', error);
-    }
+    }, CONFIG.cartPollInterval);
   }
 
   // Initialize when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  function domReady() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      // Small delay to ensure cart is loaded
+      setTimeout(init, 1000);
+    }
   }
 
-  // Also initialize when cart drawer opens (for themes that load cart dynamically)
-  document.addEventListener('click', function(e) {
-    if (e.target.matches('[data-cart-drawer], .cart-drawer-toggle, .js-cart-drawer-open')) {
-      setTimeout(init, 500); // Small delay to let cart drawer load
-    }
-  });
+  // Handle dynamic cart loading
+  function handleDynamicCart() {
+    // Watch for cart drawer toggles
+    document.addEventListener('click', function(e) {
+      const cartTriggers = [
+        '[data-cart-drawer]',
+        '.cart-drawer-toggle', 
+        '.js-cart-drawer-open',
+        '[href="/cart"]',
+        '.cart-link'
+      ];
+      
+      if (cartTriggers.some(selector => e.target.matches(selector))) {
+        debugLog('🛒 Cart trigger clicked, reinitializing...');
+        setTimeout(init, 500);
+      }
+    });
+
+    // Watch for AJAX cart updates
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      const result = originalFetch.apply(this, args);
+      
+      if (args[0] && (args[0].includes('/cart/') || args[0].includes('cart.js'))) {
+        debugLog('🔄 Cart API call detected');
+        setTimeout(() => {
+          getCurrentCartTotal().then(newTotal => {
+            if (newTotal !== currentCartTotal) {
+              const previousTotal = currentCartTotal;
+              currentCartTotal = newTotal;
+              debugLog(`💰 Cart updated via API: ${previousTotal} → ${currentCartTotal}`);
+              updateMilestoneDisplay();
+              if (newTotal > previousTotal) {
+                checkNewlyUnlockedMilestones(previousTotal, newTotal);
+              }
+            }
+          });
+        }, 500);
+      }
+      
+      return result;
+    };
+  }
+
+  // Start everything
+  debugLog('🚀 Shopify Cart Rewards Integration script loaded!');
+  domReady();
+  handleDynamicCart();
 
 })();
 
-console.log('🚀 Shopify Cart Rewards Integration script loaded!');
+console.log('🎁 Real Beauty Store - Milestone Rewards Active!');
