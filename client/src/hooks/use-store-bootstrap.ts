@@ -33,6 +33,9 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
 
   // Check if we have required configuration for store creation
   const canCreateStore = useMemo(() => !!(shopifyStoreId && shopifyStoreName && shopifyAccessToken), [shopifyStoreId, shopifyStoreName, shopifyAccessToken]);
+  
+  // Check if we're in production mode (safer fallback)
+  const isProduction = useMemo(() => import.meta.env.NODE_ENV === 'production', []);
 
   // Query to fetch store by Shopify ID
   const { data: store, isLoading: isFetching, error: fetchError } = useQuery({
@@ -83,17 +86,25 @@ export function useStoreBootstrap(): UseStoreBootstrapResult {
       // Store exists, cache the ID
       setStoreId(store.id);
       localStorage.setItem('resolved_store_id', store.id);
-    } else if (!isFetching && !store && !createStoreMutation.isPending && !createStoreMutation.isSuccess && !storeId && canCreateStore) {
-      // Only try to create store if we have required configuration
-      createStoreMutation.mutate();
+    } else if (!isFetching && !store && !createStoreMutation.isPending && !createStoreMutation.isSuccess && !storeId) {
+      // In production, don't try to create store if canCreateStore is false
+      // This prevents infinite loops when environment variables are missing
+      if (canCreateStore) {
+        createStoreMutation.mutate();
+      } else if (isProduction) {
+        // In production, if we can't create store but need one, clear any stale cache
+        // and let the hook return appropriate error
+        localStorage.removeItem('resolved_store_id');
+      }
     }
-  }, [store, isFetching, createStoreMutation.isPending, createStoreMutation.isSuccess, canCreateStore]);
+  }, [store, isFetching, createStoreMutation.isPending, createStoreMutation.isSuccess]);
 
   const isLoading = isFetching || createStoreMutation.isPending;
   
   // Provide clear error messages for configuration issues
-  const configError = !canCreateStore && !store ? 
-    'Missing Shopify configuration. Please set VITE_SHOPIFY_ADMIN_API_KEY environment variable.' : null;
+  const configError = !canCreateStore && !store && isProduction ? 
+    'Store configuration not available in production mode. Store should exist in database.' : 
+    (!canCreateStore && !store ? 'Missing Shopify configuration. Please set VITE_SHOPIFY_ADMIN_API_KEY environment variable.' : null);
   
   const error = configError || 
                 (fetchError ? String(fetchError) : null) ||
