@@ -139,10 +139,21 @@ export function useCart(cartToken: string) {
     });
   }, [removeItem, session?.currentValue]);
 
-  // Select free products
+  // Select free products with idempotency guard to prevent infinite loops
   const selectFreeProducts = useCallback((productIds: string[]) => {
+    // Guard: Only mutate if the product IDs have actually changed
+    const currentIds = Array.isArray(session?.selectedFreeProducts) ? session.selectedFreeProducts : [];
+    const idsChanged = productIds.length !== currentIds.length || 
+      productIds.some((id, index) => id !== currentIds[index]);
+    
+    if (!idsChanged) {
+      console.log('Skipping free products mutation - IDs unchanged:', { productIds, currentIds });
+      return;
+    }
+    
+    console.log('Updating free products - IDs changed:', { from: currentIds, to: productIds });
     updateFreeProductsMutation.mutate(productIds);
-  }, []);
+  }, [session?.selectedFreeProducts]);
 
   return {
     items,
