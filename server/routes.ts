@@ -615,6 +615,136 @@ console.log('🎁 Real Beauty Store - Milestone Rewards Active!');`;
     }
   });
 
+  // Dedicated Shopify integration endpoint (serves JavaScript directly)
+  app.get("/shopify-integration.js", async (req, res) => {
+    try {
+      const storeId = 'fc79700f-742c-4c08-a44b-a1462073a442';
+      const milestones = await storage.getMilestonesByStore(storeId, false);
+      
+      res.set({
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      });
+      
+      const jsContent = `console.log('🎁 Real Beauty Store - Dynamic Milestone Loading...');
+
+(function() {
+  'use strict';
+  
+  // Dynamic milestones loaded from database
+  const MILESTONES = ${JSON.stringify(milestones.map(m => ({
+    id: m.id,
+    name: m.name,
+    amount: parseFloat(m.thresholdAmount),
+    rewardType: m.rewardType,
+    icon: m.icon || (m.rewardType === 'free_delivery' ? '🚚' : '🎁'),
+    status: m.status
+  })).filter(m => m.status === 'active').sort((a, b) => a.amount - b.amount))};
+  
+  let currentCartTotal = 0;
+  
+  function createMilestoneUI() {
+    const existing = document.getElementById('cart-rewards-container');
+    if (existing) existing.remove();
+    
+    const container = document.createElement('div');
+    container.id = 'cart-rewards-container';
+    container.style.cssText = \`
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      margin: 16px;
+      border-radius: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      text-align: center;
+      position: relative;
+      z-index: 1000;
+    \`;
+    
+    let milestonesHTML = '<h3 style="margin: 0 0 16px 0; font-size: 20px;">🎁 Milestone Rewards</h3>';
+    milestonesHTML += '<div style="display: grid; gap: 8px; text-align: left;">';
+    
+    MILESTONES.forEach(milestone => {
+      milestonesHTML += \`
+        <div style="display: flex; justify-content: space-between; padding: 8px; background: rgba(255,255,255,0.15); border-radius: 6px;">
+          <span>\${milestone.icon} \${milestone.name}</span>
+          <strong>PKR \${milestone.amount.toLocaleString()}</strong>
+        </div>
+      \`;
+    });
+    
+    milestonesHTML += '</div>';
+    milestonesHTML += '<div style="margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.2); border-radius: 8px;">';
+    milestonesHTML += '<strong>🛒 Add items to unlock rewards!</strong>';
+    milestonesHTML += '</div>';
+    
+    container.innerHTML = milestonesHTML;
+    
+    const cartContainers = [
+      '.cart-drawer__content',
+      '.cart__content', 
+      '.cart-drawer',
+      '.cart',
+      '#cart-drawer',
+      '.js-cart-drawer',
+      '[data-cart]',
+      '.drawer__content',
+      '.cart-items',
+      'body'
+    ];
+    
+    let targetContainer = null;
+    for (let i = 0; i < cartContainers.length; i++) {
+      targetContainer = document.querySelector(cartContainers[i]);
+      if (targetContainer) {
+        console.log('🎯 Found cart container:', cartContainers[i]);
+        break;
+      }
+    }
+    
+    if (targetContainer) {
+      if (targetContainer.firstChild) {
+        targetContainer.insertBefore(container, targetContainer.firstChild);
+      } else {
+        targetContainer.appendChild(container);
+      }
+      console.log('✅ Dynamic milestones displayed!');
+    }
+  }
+  
+  function init() {
+    console.log('🚀 Loading \${MILESTONES.length} milestones from database...');
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', createMilestoneUI);
+    } else {
+      setTimeout(createMilestoneUI, 1000);
+    }
+    
+    document.addEventListener('click', function(e) {
+      if (e.target.matches && (e.target.matches('[data-cart-drawer]') || 
+          e.target.matches('.cart-drawer-toggle') || 
+          e.target.matches('[href="/cart"]') || 
+          e.target.matches('.cart-link'))) {
+        setTimeout(createMilestoneUI, 500);
+      }
+    });
+  }
+  
+  init();
+})();
+
+console.log('✅ Real Beauty Store - \${MILESTONES.length} Dynamic Milestones Ready!');`;
+      
+      return res.send(jsContent);
+    } catch (error) {
+      console.error('Shopify integration error:', error);
+      res.status(500).send('// Error loading milestones');
+    }
+  });
+
   app.get("/api/stores/:storeId/milestones", async (req, res) => {
     try {
       const { storeId } = req.params;
