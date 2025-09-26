@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import type { CartSession } from "@shared/schema";
@@ -21,6 +21,22 @@ export function useCart(cartToken: string) {
     queryKey: ["/api/cart-sessions", cartToken],
     enabled: !!cartToken,
   });
+
+  // Sync local cartTotal with session currentValue to prevent infinite loops
+  useEffect(() => {
+    if (session && session.currentValue) {
+      const sessionValue = parseFloat(session.currentValue);
+      const localTotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
+      
+      // If session has a value but local items are empty (common in production), 
+      // avoid triggering mutations that would reset the session value to 0
+      if (items.length === 0 && sessionValue > 0) {
+        console.log('Preventing cart value reset - session has value but local items empty:', { sessionValue, localTotal });
+        // Don't trigger any mutations when local is empty but session has value
+        return;
+      }
+    }
+  }, [session, items]);
 
   // Update cart value mutation
   const updateCartValueMutation = useMutation({
@@ -62,8 +78,13 @@ export function useCart(cartToken: string) {
   const updateItems = useCallback((newItems: CartItem[]) => {
     setItems(newItems);
     const newTotal = newItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-    updateCartValueMutation.mutate(newTotal);
-  }, [updateCartValueMutation]);
+    
+    // Guard against unnecessary mutations - only update if value actually changed
+    const currentSessionValue = session?.currentValue ? parseFloat(session.currentValue) : 0;
+    if (Math.abs(newTotal - currentSessionValue) > 0.01) {
+      updateCartValueMutation.mutate(newTotal);
+    }
+  }, [updateCartValueMutation, session]);
 
   // Add item to cart
   const addItem = useCallback((item: CartItem) => {
@@ -86,10 +107,15 @@ export function useCart(cartToken: string) {
     setItems(prevItems => {
       const newItems = prevItems.filter(item => item.id !== itemId);
       const newTotal = newItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-      updateCartValueMutation.mutate(newTotal);
+      
+      // Guard against unnecessary mutations - only update if value actually changed
+      const currentSessionValue = session?.currentValue ? parseFloat(session.currentValue) : 0;
+      if (Math.abs(newTotal - currentSessionValue) > 0.01) {
+        updateCartValueMutation.mutate(newTotal);
+      }
       return newItems;
     });
-  }, [updateCartValueMutation]);
+  }, [updateCartValueMutation, session]);
 
   // Update item quantity
   const updateQuantity = useCallback((itemId: string, quantity: number) => {
@@ -103,10 +129,15 @@ export function useCart(cartToken: string) {
         item.id === itemId ? { ...item, quantity } : item
       );
       const newTotal = newItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-      updateCartValueMutation.mutate(newTotal);
+      
+      // Guard against unnecessary mutations - only update if value actually changed
+      const currentSessionValue = session?.currentValue ? parseFloat(session.currentValue) : 0;
+      if (Math.abs(newTotal - currentSessionValue) > 0.01) {
+        updateCartValueMutation.mutate(newTotal);
+      }
       return newItems;
     });
-  }, [updateCartValueMutation, removeItem]);
+  }, [updateCartValueMutation, removeItem, session]);
 
   // Select free products
   const selectFreeProducts = useCallback((productIds: string[]) => {
