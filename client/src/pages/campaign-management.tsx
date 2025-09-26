@@ -397,35 +397,11 @@ export default function CampaignManagement() {
   const [previewingCampaign, setPreviewingCampaign] = useState<any>(null);
   const { toast } = useToast();
 
-  // Early return if store is loading or has error (AFTER all hooks)
-  if (isStoreLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Loading Store Configuration...</h2>
-          <p className="text-muted-foreground">Please wait while we set up your store.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (storeError || !storeId) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Store Configuration Error</h2>
-          <p className="text-muted-foreground">
-            {storeError || "Unable to configure store. Please check your environment variables."}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Fetch campaigns data
+  // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS - Move all queries and mutations here
+  // Fetch campaigns data - use enabled flag to control execution
   const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError } = useQuery<any[]>({
     queryKey: ['/api/stores', storeId, 'campaigns'],
-    enabled: !!storeId,
+    enabled: !!storeId && !isStoreLoading && !storeError, // Only run when store is ready
   });
 
   // Filter campaigns based on search and filters  
@@ -597,6 +573,31 @@ export default function CampaignManagement() {
       });
     },
   });
+
+  // NOW SAFE TO DO EARLY RETURNS - ALL HOOKS ARE DECLARED ABOVE
+  if (isStoreLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Loading Store Configuration...</h2>
+          <p className="text-muted-foreground">Please wait while we set up your store.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (storeError || !storeId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Store Configuration Error</h2>
+          <p className="text-muted-foreground">
+            {storeError || "Unable to configure store. Please check your environment variables."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const updateCampaignStatus = (campaignId: string, newStatus: string) => {
     updateCampaignStatusMutation.mutate({ campaignId, newStatus });

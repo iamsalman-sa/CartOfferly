@@ -70,32 +70,8 @@ export default function MilestoneManagement() {
   
   const { toast } = useToast();
 
-  // Early return if store is loading or has error (AFTER all hooks)
-  if (isStoreLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Loading Store Configuration...</h2>
-          <p className="text-muted-foreground">Please wait while we set up your store.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (storeError || !storeId) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Store Configuration Error</h2>
-          <p className="text-muted-foreground">
-            {storeError || "Unable to configure store. Please check your environment variables."}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Fetch milestones with status filter
+  // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS - Move queries and mutations here
+  // Fetch milestones with status filter - use enabled flag to control execution
   const { data: milestones = [], isLoading } = useQuery<Milestone[]>({
     queryKey: ['/api/stores', storeId, 'milestones', selectedStatus],
     queryFn: () => {
@@ -106,13 +82,14 @@ export default function MilestoneManagement() {
       // Note: By default, deleted milestones are excluded from all views
       return fetch(`/api/stores/${storeId}/milestones?${params}`).then(res => res.json());
     },
+    enabled: !!storeId && !isStoreLoading && !storeError, // Only run when store is ready
   });
 
   // Fetch milestone stats
   const { data: milestoneStats } = useQuery({
     queryKey: ['/api/milestones', showStats, 'stats'],
     queryFn: () => apiRequest("GET", `/api/milestones/${showStats}/stats`).then(res => res.json()),
-    enabled: !!showStats,
+    enabled: !!showStats && !!storeId && !isStoreLoading && !storeError,
   });
 
   // Bulk actions
@@ -371,6 +348,31 @@ export default function MilestoneManagement() {
       });
     },
   });
+
+  // NOW SAFE TO DO EARLY RETURNS - ALL HOOKS ARE DECLARED ABOVE
+  if (isStoreLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Loading Store Configuration...</h2>
+          <p className="text-muted-foreground">Please wait while we set up your store.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (storeError || !storeId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Store Configuration Error</h2>
+          <p className="text-muted-foreground">
+            {storeError || "Unable to configure store. Please check your environment variables."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const handleEdit = (milestone: Milestone) => {
     setSelectedMilestone(milestone);
