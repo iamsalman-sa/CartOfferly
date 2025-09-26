@@ -83,8 +83,13 @@ export function useCart(cartToken: string) {
 
   // Remove item from cart
   const removeItem = useCallback((itemId: string) => {
-    updateItems(items.filter(item => item.id !== itemId));
-  }, [items, updateItems]);
+    setItems(prevItems => {
+      const newItems = prevItems.filter(item => item.id !== itemId);
+      const newTotal = newItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+      updateCartValueMutation.mutate(newTotal);
+      return newItems;
+    });
+  }, [updateCartValueMutation]);
 
   // Update item quantity
   const updateQuantity = useCallback((itemId: string, quantity: number) => {
@@ -93,10 +98,15 @@ export function useCart(cartToken: string) {
       return;
     }
     
-    updateItems(items.map(item => 
-      item.id === itemId ? { ...item, quantity } : item
-    ));
-  }, [items, updateItems, removeItem]);
+    setItems(prevItems => {
+      const newItems = prevItems.map(item => 
+        item.id === itemId ? { ...item, quantity } : item
+      );
+      const newTotal = newItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+      updateCartValueMutation.mutate(newTotal);
+      return newItems;
+    });
+  }, [updateCartValueMutation, removeItem]);
 
   // Select free products
   const selectFreeProducts = useCallback((productIds: string[]) => {
