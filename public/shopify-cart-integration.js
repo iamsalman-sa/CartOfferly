@@ -10,7 +10,7 @@
   // Configuration - Update these with your actual values
   const CONFIG = {
     // Your Render admin app URL (replace with your actual Render URL)
-    adminApiUrl: 'https://your-render-app.onrender.com',
+    adminApiUrl: 'https://cartofferly.onrender.com',
     
     // Your store ID from the admin database  
     shopifyStoreId: 'development-store', // Update this to match your store ID
