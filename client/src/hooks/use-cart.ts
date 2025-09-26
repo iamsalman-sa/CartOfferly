@@ -84,7 +84,7 @@ export function useCart(cartToken: string) {
     if (Math.abs(newTotal - currentSessionValue) > 0.01) {
       updateCartValueMutation.mutate(newTotal);
     }
-  }, [updateCartValueMutation, session]);
+  }, [session?.currentValue]);
 
   // Add item to cart
   const addItem = useCallback((item: CartItem) => {
@@ -115,7 +115,7 @@ export function useCart(cartToken: string) {
       }
       return newItems;
     });
-  }, [updateCartValueMutation, session]);
+  }, [session?.currentValue]);
 
   // Update item quantity
   const updateQuantity = useCallback((itemId: string, quantity: number) => {
@@ -137,12 +137,12 @@ export function useCart(cartToken: string) {
       }
       return newItems;
     });
-  }, [updateCartValueMutation, removeItem, session]);
+  }, [removeItem, session?.currentValue]);
 
   // Select free products
   const selectFreeProducts = useCallback((productIds: string[]) => {
     updateFreeProductsMutation.mutate(productIds);
-  }, [updateFreeProductsMutation]);
+  }, []);
 
   return {
     items,
