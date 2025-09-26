@@ -4,6 +4,9 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
+// Serve static files from public directory FIRST (for integration scripts)
+app.use(express.static('public'));
+
 // CORS configuration for Shopify integration
 app.use((req, res, next) => {
   const origin = req.headers.origin;

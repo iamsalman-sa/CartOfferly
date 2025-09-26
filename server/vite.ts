@@ -43,6 +43,11 @@ export async function setupVite(app: Express, server: Server) {
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+    
+    // Skip Vite handling for static files from public directory
+    if (url.endsWith('.js') && url.includes('shopify-cart-integration')) {
+      return next();
+    }
 
     try {
       const clientTemplate = path.resolve(
