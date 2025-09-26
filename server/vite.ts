@@ -40,11 +40,26 @@ export async function setupVite(app: Express, server: Server) {
     appType: "custom",
   });
 
-  app.use(vite.middlewares);
-  app.use("*", async (req, res, next) => {
+  // Custom middleware to skip Vite for specific routes
+  app.use((req, res, next) => {
     const url = req.originalUrl;
     
     // Skip Vite handling for API routes and JavaScript endpoints
+    if (url.startsWith('/api/') || 
+        url.startsWith('/cart-script') || 
+        url.endsWith('.js') || 
+        url.includes('shopify-cart-integration')) {
+      return next();
+    }
+    
+    // For all other routes, use Vite middleware
+    vite.middlewares(req, res, next);
+  });
+  
+  app.use("*", async (req, res, next) => {
+    const url = req.originalUrl;
+    
+    // This catch-all only handles SPA routes (not API or JS files)
     if (url.startsWith('/api/') || 
         url.startsWith('/cart-script') || 
         url.endsWith('.js') || 
