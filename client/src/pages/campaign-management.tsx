@@ -381,10 +381,23 @@ function CampaignForm({
 }
 
 export default function CampaignManagement() {
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL LOGIC
   // Use store bootstrap hook to get the correct store ID
   const { storeId, isLoading: isStoreLoading, error: storeError } = useStoreBootstrap();
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<any>(null);
+  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showStats, setShowStats] = useState<string | null>(null);
+  const [duplicateDialog, setDuplicateDialog] = useState<{ open: boolean; campaign: any | null }>({ open: false, campaign: null });
+  const [previewingCampaign, setPreviewingCampaign] = useState<any>(null);
+  const { toast } = useToast();
 
-  // Early return if store is loading or has error
+  // Early return if store is loading or has error (AFTER all hooks)
   if (isStoreLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -408,18 +421,6 @@ export default function CampaignManagement() {
       </div>
     );
   }
-  
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingCampaign, setEditingCampaign] = useState<any>(null);
-  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
-  const [showBulkActions, setShowBulkActions] = useState(false);
-  const [showStats, setShowStats] = useState<string | null>(null);
-  const [duplicateDialog, setDuplicateDialog] = useState<{ open: boolean; campaign: any | null }>({ open: false, campaign: null });
-  const [previewingCampaign, setPreviewingCampaign] = useState<any>(null);
-  const { toast } = useToast();
 
   // Fetch campaigns data
   const { data: campaignsData, isLoading: campaignsLoading, error: campaignsError } = useQuery<any[]>({

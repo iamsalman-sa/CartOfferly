@@ -36,7 +36,7 @@ export function useCart(cartToken: string) {
         return;
       }
     }
-  }, [session, items]);
+  }, [session?.currentValue, items.length]);
 
   // Update cart value mutation
   const updateCartValueMutation = useMutation({

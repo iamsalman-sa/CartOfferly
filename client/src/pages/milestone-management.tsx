@@ -53,10 +53,24 @@ const milestoneFormSchema = z.object({
 type MilestoneFormData = z.infer<typeof milestoneFormSchema>;
 
 export default function MilestoneManagement() {
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL LOGIC
   // Use store bootstrap hook to get the correct store ID
   const { storeId, isLoading: isStoreLoading, error: storeError } = useStoreBootstrap();
+  
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'paused'>('all');
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
+  const [showStats, setShowStats] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [duplicateDialog, setDuplicateDialog] = useState<{ open: boolean; milestone: Milestone | null }>({ open: false, milestone: null });
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; milestone: Milestone | null }>({ open: false, milestone: null });
+  const [selectedMilestones, setSelectedMilestones] = useState<string[]>([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  
+  const { toast } = useToast();
 
-  // Early return if store is loading or has error
+  // Early return if store is loading or has error (AFTER all hooks)
   if (isStoreLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -80,19 +94,6 @@ export default function MilestoneManagement() {
       </div>
     );
   }
-  
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'paused'>('all');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
-  const [showStats, setShowStats] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [duplicateDialog, setDuplicateDialog] = useState<{ open: boolean; milestone: Milestone | null }>({ open: false, milestone: null });
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; milestone: Milestone | null }>({ open: false, milestone: null });
-  const [selectedMilestones, setSelectedMilestones] = useState<string[]>([]);
-  const [showBulkActions, setShowBulkActions] = useState(false);
-  
-  const { toast } = useToast();
 
   // Fetch milestones with status filter
   const { data: milestones = [], isLoading } = useQuery<Milestone[]>({
