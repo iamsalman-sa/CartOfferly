@@ -13,7 +13,7 @@
     adminApiUrl: 'https://cartofferly.onrender.com',
     
     // Your store ID from the admin database  
-    shopifyStoreId: 'development-store', // Update this to match your store ID
+    shopifyStoreId: 'realbeauty', // Matches your Real Beauty Store
     
     // Milestone container selector
     milestoneContainerId: 'cart-rewards-milestones',
